@@ -7,7 +7,7 @@ require "#{File.dirname(__FILE__)}/schedules"
 
 class HVAC
 
-    def self.write_fault_ems(model, unit, runner, control_zone, rated_airflow_rate, installed_airflow_rate, is_heat_pump)
+    def self.write_fault_ems(model, unit, runner, control_zone, rated_airflow_rate, installed_airflow_rate, frac_manufacturer_charge, is_heat_pump)
 
       obj_name = Constants.ObjectNameInstallationQualityFault(unit.name.to_s.gsub("unit ", "")).gsub("|", "_")
 
@@ -60,30 +60,67 @@ class HVAC
       fault_program = OpenStudio::Model::EnergyManagementSystemProgram.new(model)
       fault_program.setName("#{obj_name} prog")
 
-      f = installed_airflow_rate / rated_airflow_rate - 1.0
-
-      fault_program.addLine("Set F = #{f.round(3)}")
+      f_af = installed_airflow_rate / rated_airflow_rate - 1.0
+      f_chg = frac_manufacturer_charge - 1.0
+      
+      fault_program.addLine("Set F_AF = #{f_af.round(3)}")
       fault_program.addLine("Set a1_AF_Qgr_c = 0.295")
       fault_program.addLine("Set a2_AF_Qgr_c = -0.00117")
       fault_program.addLine("Set a3_AF_Qgr_c = -0.00157")
       fault_program.addLine("Set a4_AF_Qgr_c = 0.0692")
-      fault_program.addLine("Set q0 = a1_AF_Qgr_c")
-      fault_program.addLine("Set q1 = a2_AF_Qgr_c*#{tin_sensor.name}")
-      fault_program.addLine("Set q2 = a3_AF_Qgr_c*#{tout_sensor.name}")
-      fault_program.addLine("Set q3 = a4_AF_Qgr_c*F")
-      fault_program.addLine("Set Y_AF_Q_R_c = 1 + ((q0+(q1)+(q2)+(q3))*F)")
-      fault_program.addLine("Set #{cool_cap_fff_act.name} = Y_AF_Q_R_c")
-
+      fault_program.addLine("Set q0_AF = a1_AF_Qgr_c")
+      fault_program.addLine("Set q1_AF = a2_AF_Qgr_c*#{tin_sensor.name}")
+      fault_program.addLine("Set q2_AF = a3_AF_Qgr_c*#{tout_sensor.name}")
+      fault_program.addLine("Set q3_AF = a4_AF_Qgr_c*F_AF")
+      fault_program.addLine("Set Y_AF_Q_R_c = 1 + ((q0_AF+(q1_AF)+(q2_AF)+(q3_AF))*F_AF)")
+      
       fault_program.addLine("Set a1_AF_Wodu_c = -0.103")
       fault_program.addLine("Set a2_AF_Wodu_c = 0.00412")
       fault_program.addLine("Set a3_AF_Wodu_c = 0.00238")
       fault_program.addLine("Set a4_AF_Wodu_c = 0.21")
-      fault_program.addLine("Set w1 = a1_AF_Wodu_c")
-      fault_program.addLine("Set w2 = a2_AF_Wodu_c*#{tin_sensor.name}")
-      fault_program.addLine("Set w3 = a3_AF_Wodu_c*#{tout_sensor.name}")
-      fault_program.addLine("Set w4 = a4_AF_Wodu_c*F")
-      fault_program.addLine("Set Y_AF_OD_c = 1 + ((w1+(w2)+(w3)+(w4))*F)")
-      fault_program.addLine("Set #{cool_eir_fff_act.name} = Y_AF_OD_c / Y_AF_Q_R_c")
+      fault_program.addLine("Set w1_AF = a1_AF_Wodu_c")
+      fault_program.addLine("Set w2_AF = a2_AF_Wodu_c*#{tin_sensor.name}")
+      fault_program.addLine("Set w3_AF = a3_AF_Wodu_c*#{tout_sensor.name}")
+      fault_program.addLine("Set w4_AF = a4_AF_Wodu_c*F_AF")
+      fault_program.addLine("Set Y_AF_OD_c = 1 + ((w1_AF+(w2_AF)+(w3_AF)+(w4_AF))*F_AF)")
+      
+      fault_program.addLine("Set F_CH = #{f_chg.round(3)}")
+      if f_chg<=0
+        fault_program.addLine("Set a1_CH_Qgr_c = -9.46E-01")
+        fault_program.addLine("Set a2_CH_Qgr_c = 4.93E-02")
+        fault_program.addLine("Set a3_CH_Qgr_c = -1.18E-03")
+        fault_program.addLine("Set a4_CH_Qgr_c = -1.15E+00")
+
+        fault_program.addLine("Set a1_CH_Wod_c = -3.13E-01")
+        fault_program.addLine("Set a2_CH_Wod_c = 1.15E-02")
+        fault_program.addLine("Set a3_CH_Wod_c = 2.66E-03")
+        fault_program.addLine("Set a4_CH_Wod_c = -1.16E-01")        
+      else
+        fault_program.addLine("Set a1_CH_Qgr_c = -1.63E-01")
+        fault_program.addLine("Set a2_CH_Qgr_c = 1.14E-02")
+        fault_program.addLine("Set a3_CH_Qgr_c = -2.10E-04")
+        fault_program.addLine("Set a4_CH_Qgr_c = -1.40E-01")
+    
+        fault_program.addLine("Set a1_CH_Wod_c = 2.19E-01")
+        fault_program.addLine("Set a2_CH_Wod_c = -5.01E-03")
+        fault_program.addLine("Set a3_CH_Wod_c = 9.89E-04")
+        fault_program.addLine("Set a4_CH_Wod_c = 2.84E-01")      
+      end
+      
+      fault_program.addLine("Set q0_CH = a1_CH_Qgr_c")
+      fault_program.addLine("Set q1_CH = a2_CH_Qgr_c*#{tin_sensor.name}")
+      fault_program.addLine("Set q2_CH = a3_CH_Qgr_c*#{tout_sensor.name}")
+      fault_program.addLine("Set q3_CH = a4_CH_Qgr_c*F_CH")
+      fault_program.addLine("Set Y_CH_Q_R_c = 1 + ((q0_CH+(q1_CH)+(q2_CH)+(q3_CH))*F_CH)")
+
+      fault_program.addLine("Set w1_CH = a1_CH_Wod_c")
+      fault_program.addLine("Set w2_CH = a2_CH_Wod_c*#{tin_sensor.name}")
+      fault_program.addLine("Set w3_CH = a3_CH_Wod_c*#{tout_sensor.name}")
+      fault_program.addLine("Set w4_CH = a4_CH_Wod_c*F_CH")
+      fault_program.addLine("Set Y_CH_OD_c = 1 + ((w1_CH+(w2_CH)+(w3_CH)+(w4_CH))*F_CH)")
+      
+      fault_program.addLine("Set #{cool_cap_fff_act.name} = (Y_AF_Q_R_c*Y_CH_Q_R_c)")
+      fault_program.addLine("Set #{cool_eir_fff_act.name} = ((Y_AF_OD_c*Y_CH_OD_c)/(Y_AF_Q_R_c*Y_CH_Q_R_c))")
 
       if is_heat_pump
 
@@ -99,20 +136,49 @@ class HVAC
         fault_program.addLine("Set a1_AF_Qgr_h = 0.0009404")
         fault_program.addLine("Set a2_AF_Qgr_h = 0.0065171")
         fault_program.addLine("Set a3_AF_Qgr_h = -0.3464391")
-        fault_program.addLine("Set qh1 = a1_AF_Qgr_h")
-        fault_program.addLine("Set qh2 = a2_AF_Qgr_h*#{tout_sensor.name}")
-        fault_program.addLine("Set qh3 = a3_AF_Qgr_h*F")
-        fault_program.addLine("Set Y_AF_Q_R_h = 1 + ((qh1+(qh2)+(qh3))*F)")
-        fault_program.addLine("Set #{hp_heat_cap_fff_act.name} = Y_AF_Q_R_h")
-
+        fault_program.addLine("Set qh1_AF = a1_AF_Qgr_h")
+        fault_program.addLine("Set qh2_AF = a2_AF_Qgr_h*#{tout_sensor.name}")
+        fault_program.addLine("Set qh3_AF = a3_AF_Qgr_h*F_AF")
+        fault_program.addLine("Set Y_AF_Q_R_h = 1 + ((qh1_AF+(qh2_AF)+(qh3_AF))*F_AF)")
+        
         fault_program.addLine("Set a1_AF_Wodu_h = -0.177359")
         fault_program.addLine("Set a2_AF_Wodu_h = -0.0125111")
         fault_program.addLine("Set a3_AF_Wodu_h = 0.4784914")
-        fault_program.addLine("Set wh1 = a1_AF_Wodu_h")
-        fault_program.addLine("Set wh2 = a2_AF_Wodu_h*#{tout_sensor.name}")
-        fault_program.addLine("Set wh3 = a3_AF_Wodu_h*F")
-        fault_program.addLine("Set Y_AF_OD_h = 1 + ((wh1+(wh2)+(wh3))*F)")
-        fault_program.addLine("Set #{hp_heat_eir_fff_act.name} = Y_AF_OD_h / Y_AF_Q_R_h")
+        fault_program.addLine("Set wh1_AF = a1_AF_Wodu_h")
+        fault_program.addLine("Set wh2_AF = a2_AF_Wodu_h*#{tout_sensor.name}")
+        fault_program.addLine("Set wh3_AF = a3_AF_Wodu_h*F_AF")
+        fault_program.addLine("Set Y_AF_OD_h = 1 + ((wh1_AF+(wh2_AF)+(wh3_AF))*F_AF)")
+                
+        if f_chg<=0        
+          fault_program.addLine("Set a1_CH_Qgr_h = -0.0338595")
+          fault_program.addLine("Set a2_CH_Qgr_h = 0.0202827")
+          fault_program.addLine("Set a3_CH_Qgr_h = -2.6226343")
+
+          fault_program.addLine("Set a1_CH_Wod_h = 0.0615649")
+          fault_program.addLine("Set a2_CH_Wod_h = 0.0044554")
+          fault_program.addLine("Set a3_CH_Wod_h = -0.2598507")                        
+        else        
+          fault_program.addLine("Set a1_CH_Qgr_h = -0.0029514")
+          fault_program.addLine("Set a2_CH_Qgr_h = 0.0007379")
+          fault_program.addLine("Set a3_CH_Qgr_h = -0.0064112")
+
+          fault_program.addLine("Set a1_CH_Wod_h = -0.0594134")
+          fault_program.addLine("Set a2_CH_Wod_h = 0.0159205")
+          fault_program.addLine("Set a3_CH_Wod_h = 1.8872153")                        
+        end
+        
+        fault_program.addLine("Set qh1_CH = a1_CH_Qgr_h")
+        fault_program.addLine("Set qh2_CH = a2_CH_Qgr_h*#{tout_sensor.name}")
+        fault_program.addLine("Set qh3_CH = a3_CH_Qgr_h*F_CH")
+        fault_program.addLine("Set Y_CH_Q_R_h = 1 + ((qh1_CH+(qh2_CH)+(qh3_CH))*F_CH)")        
+        
+        fault_program.addLine("Set wh1_CH = a1_CH_Wod_h")
+        fault_program.addLine("Set wh2_CH = a2_CH_Wod_h*#{tout_sensor.name}")
+        fault_program.addLine("Set wh3_CH = a3_CH_Wod_h*F_CH")
+        fault_program.addLine("Set Y_CH_OD_h = 1 + ((wh1_CH+(wh2_CH)+(wh3_CH))*F_CH)")        
+        
+        fault_program.addLine("Set #{hp_heat_cap_fff_act.name} = (Y_AF_Q_R_h*Y_CH_Q_R_h)")
+        fault_program.addLine("Set #{hp_heat_eir_fff_act.name} = (Y_AF_OD_h*Y_CH_OD_h) / (Y_AF_Q_R_h*Y_CH_Q_R_h)")
 
       end
       
@@ -2254,6 +2320,43 @@ class HVAC
       return true
     end
     
+    def self.apply_ideal_air_loads(model, unit, runner)
+      thermal_zones = Geometry.get_thermal_zones_from_spaces(unit.spaces)
+
+      control_slave_zones_hash = get_control_and_slave_zones(thermal_zones)
+      control_slave_zones_hash.each do |control_zone, slave_zones|
+
+        ideal_air = OpenStudio::Model::ZoneHVACIdealLoadsAirSystem.new(model)
+        ideal_air.setMaximumHeatingSupplyAirTemperature(50)
+        ideal_air.setMinimumCoolingSupplyAirTemperature(10)
+        ideal_air.setMaximumHeatingSupplyAirHumidityRatio(0.015)
+        ideal_air.setMinimumCoolingSupplyAirHumidityRatio(0.01)
+        ideal_air.setHeatingLimit('NoLimit')
+        ideal_air.setCoolingLimit('NoLimit')
+        ideal_air.setDehumidificationControlType('None')
+        ideal_air.setHumidificationControlType('None')
+        ideal_air.addToThermalZone(control_zone)
+        
+        slave_zones.each do |slave_zone|
+        
+          ideal_air = OpenStudio::Model::ZoneHVACIdealLoadsAirSystem.new(model)
+          ideal_air.setMaximumHeatingSupplyAirTemperature(50)
+          ideal_air.setMinimumCoolingSupplyAirTemperature(10)
+          ideal_air.setMaximumHeatingSupplyAirHumidityRatio(0.015)
+          ideal_air.setMinimumCoolingSupplyAirHumidityRatio(0.01)
+          ideal_air.setHeatingLimit('NoLimit')
+          ideal_air.setCoolingLimit('NoLimit')
+          ideal_air.setDehumidificationControlType('None')
+          ideal_air.setHumidificationControlType('None')
+          ideal_air.addToThermalZone(slave_zone)
+          
+        end
+        
+      end
+    
+      return true
+    end
+    
     def self.remove_hvac_equipment(model, runner, thermal_zone, unit, new_equip)
       # TODO: Split into remove_heating and remove_cooling
       counterpart_equip = nil
@@ -3625,6 +3728,11 @@ class HVAC
         runner.registerInfo("Found ground source heat pump in #{thermal_zone.name}.")
         cooling_equipment << system
       end
+      if self.has_ideal_air(model, runner, thermal_zone)
+        runner.registerInfo("Found ideal air system in #{thermal_zone.name}.")
+        ideal_air = self.get_ideal_air(model, runner, thermal_zone)
+        cooling_equipment << ideal_air
+      end
       return cooling_equipment
     end
     
@@ -3667,6 +3775,11 @@ class HVAC
         runner.registerInfo("Found unit heater in #{thermal_zone.name}.")
         system, clg_coil, htg_coil = self.get_unitary_system_zone_hvac(model, runner, thermal_zone)
         heating_equipment << system
+      end
+      if self.has_ideal_air(model, runner, thermal_zone)
+        runner.registerInfo("Found ideal air system in #{thermal_zone.name}.")
+        ideal_air = self.get_ideal_air(model, runner, thermal_zone)
+        heating_equipment << ideal_air
       end
       return heating_equipment
     end
@@ -3820,6 +3933,15 @@ class HVAC
       return nil
     end
     
+    def self.get_ideal_air(model, runner, thermal_zone)
+      # Returns the ideal air loads system if available
+      model.getZoneHVACIdealLoadsAirSystems.each do |ideal_air|
+        next unless thermal_zone.handle.to_s == ideal_air.thermalZone.get.handle.to_s
+        return ideal_air
+      end
+      return nil
+    end
+    
     # Has Equipment methods
     
     def self.has_central_ac(model, runner, thermal_zone)
@@ -3939,6 +4061,14 @@ class HVAC
         return false
       end
       return true
+    end
+    
+    def self.has_ideal_air(model, runner, thermal_zone)
+      ideal_air = self.get_ideal_air(model, runner, thermal_zone)
+      if not ideal_air.nil?
+        return true
+      end
+      return false
     end
     
     def self.has_ducted_equipment(model, runner, thermal_zone)

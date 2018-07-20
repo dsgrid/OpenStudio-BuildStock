@@ -2139,6 +2139,17 @@ class HVACSizing
         unit_final.Heat_Airflow = 0
     end
 
+    if hvac.HasCentralAirConditioner
+      unless hvac.ActualAirFlowRate.nil?
+        unit_final.Cool_Airflow = hvac.ActualAirFlowRate * UnitConversions.convert(unit_final.Cool_Capacity,"Btu/hr","ton") # cfm
+      end
+    elsif hvac.HasAirSourceHeatPump
+      unless hvac.ActualAirFlowRate.nil?
+        unit_final.Cool_Airflow = hvac.ActualAirFlowRate * UnitConversions.convert(unit_final.Cool_Capacity,"Btu/hr","ton") # cfm
+        unit_final.Heat_Airflow = unit_final.Cool_Airflow # cfm
+      end
+    end
+    
     return unit_final
   end
   
@@ -2856,11 +2867,13 @@ class HVACSizing
     
     HVAC.existing_cooling_equipment(model, runner, control_zone).each do |clg_equip|
         next if clg_equips.include? clg_equip
+        next if clg_equip.is_a? OpenStudio::Model::ZoneHVACIdealLoadsAirSystem
         clg_equips << clg_equip
     end
     
     HVAC.existing_heating_equipment(model, runner, control_zone).each do |htg_equip|
         next if htg_equips.include? htg_equip
+        next if htg_equip.is_a? OpenStudio::Model::ZoneHVACIdealLoadsAirSystem
         htg_equips << htg_equip
     end
     
@@ -3042,7 +3055,7 @@ class HVACSizing
             
             hvac.CoolingEIR = 1.0 / clg_coil.ratedCoolingCoefficientofPerformance
             
-        else
+        elsif not clg_coil.nil?
             runner.registerError("Unexpected cooling coil: #{clg_coil.name}.")
             return nil
         end
@@ -4002,27 +4015,12 @@ class HVACSizing
   
   def self.setObjectValues(runner, model, unit, hvac, ducts, unit_final)
     # Updates object properties in the model
-    
+
     model_plant_loops = model.getPlantLoops
-    
+
     thermal_zones = Geometry.get_thermal_zones_from_spaces(unit.spaces)
     control_and_slave_zones = HVAC.get_control_and_slave_zones(thermal_zones)
-    
-    if hvac.HasCentralAirConditioner
 
-      unless hvac.ActualAirFlowRate.nil?
-          unit_final.Cool_Airflow = hvac.ActualAirFlowRate * UnitConversions.convert(unit_final.Cool_Capacity,"Btu/hr","ton") # cfm
-      end
-    
-    elsif hvac.HasAirSourceHeatPump
-    
-      unless hvac.ActualAirFlowRate.nil?
-          unit_final.Cool_Airflow = hvac.ActualAirFlowRate * UnitConversions.convert(unit_final.Cool_Capacity,"Btu/hr","ton") # cfm
-          unit_final.Heat_Airflow = unit_final.Cool_Airflow # cfm
-      end
-      
-    end
-    
     # Unitary System - Air Loop
     thermal_zones.each do |thermal_zone|
         system, clg_coil, htg_coil, air_loop = HVAC.get_unitary_system_air_loop(model, runner, thermal_zone)

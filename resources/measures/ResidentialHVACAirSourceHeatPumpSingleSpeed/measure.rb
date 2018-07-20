@@ -228,6 +228,13 @@ class ProcessSingleSpeedAirSourceHeatPump < OpenStudio::Measure::ModelMeasure
     actual_cfm_per_ton.setDescription("TODO.")
     actual_cfm_per_ton.setDefaultValue(400.0)
     args << actual_cfm_per_ton
+
+    #make a double argument for ashp fraction of manufacturer recommended charge
+    frac_manufacturer_charge = OpenStudio::Measure::OSArgument::makeDoubleArgument("frac_manufacturer_charge", true)
+    frac_manufacturer_charge.setDisplayName("Fraction of Manufacturer Recommended Charge")    
+    frac_manufacturer_charge.setDescription("TODO.")
+    frac_manufacturer_charge.setDefaultValue(1.0)
+    args << frac_manufacturer_charge    
     
     return args
   end #end the arguments method
@@ -280,6 +287,7 @@ class ProcessSingleSpeedAirSourceHeatPump < OpenStudio::Measure::ModelMeasure
     end
     rated_cfm_per_ton = runner.getDoubleArgumentValue("rated_cfm_per_ton",user_arguments)
     actual_cfm_per_ton = runner.getDoubleArgumentValue("actual_cfm_per_ton",user_arguments)
+    frac_manufacturer_charge = runner.getDoubleArgumentValue("frac_manufacturer_charge",user_arguments)
 
     # Error checking
     if ( rated_cfm_per_ton < 150 or actual_cfm_per_ton < 150 ) or ( rated_cfm_per_ton > 750 or actual_cfm_per_ton > 750 )
@@ -288,6 +296,12 @@ class ProcessSingleSpeedAirSourceHeatPump < OpenStudio::Measure::ModelMeasure
     end
     if ( rated_cfm_per_ton < 200 or actual_cfm_per_ton < 200 ) or ( rated_cfm_per_ton > 600 or actual_cfm_per_ton > 600 )
       runner.registerWarning("Air flow rate input(s) are almost outside the valid range.")
+    end
+    if ( frac_manufacturer_charge < 0.70 ) or ( frac_manufacturer_charge > 1.30 )
+      runner.registerError("Fraction of manufacturer charge is outside the valid range.")
+    end
+    if ( frac_manufacturer_charge < 0.75 ) or ( frac_manufacturer_charge > 1.25 )
+      runner.registerWarning("Fraction of manufacturer charge is almost outside the valid range.")
     end
     
     # Remove any existing installation quality fault programs
@@ -317,11 +331,11 @@ class ProcessSingleSpeedAirSourceHeatPump < OpenStudio::Measure::ModelMeasure
                                                supplemental_capacity, dse, rated_cfm_per_ton)
       return false if not success
 
-      if rated_cfm_per_ton != actual_cfm_per_ton
+      if rated_cfm_per_ton != actual_cfm_per_ton or frac_manufacturer_charge != 1.0
 
         HVAC.get_control_and_slave_zones(thermal_zones).each do |control_zone, slave_zones|
           success = HVAC.write_fault_ems(model, unit, runner, control_zone, 
-                                         rated_cfm_per_ton, actual_cfm_per_ton, 
+                                         rated_cfm_per_ton, actual_cfm_per_ton, frac_manufacturer_charge,
                                          true)
           return false if not success
         end
