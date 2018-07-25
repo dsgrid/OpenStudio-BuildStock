@@ -1528,21 +1528,23 @@ class FoundationConstructions
     
     def self.get_walls_connected_to_floor(wall_surfaces, floor_surface)
         adjacent_wall_surfaces = []
-        
-        # Note: Algorithm assumes that walls span an entire edge of the floor.
+
         tol = 0.001
         wall_surfaces.each do |wall_surface|
             next if wall_surface.space.get != floor_surface.space.get
+            num_shared_vertices = 0
             wall_surface.vertices.each do |v1|
                 floor_surface.vertices.each do |v2|
-                    if (v1.x - v2.x).abs < tol and (v1.y - v2.y).abs < tol
-                        adjacent_wall_surfaces << wall_surface
+                    if (v1.x - v2.x).abs < tol and (v1.y - v2.y).abs < tol and (v1.z - v2.z).abs < tol
+                        num_shared_vertices += 1
                     end
                 end
             end
+            next unless num_shared_vertices > 1
+            adjacent_wall_surfaces << wall_surface
         end
         
-        return adjacent_wall_surfaces.uniq!
+        return adjacent_wall_surfaces
     end
     
     private

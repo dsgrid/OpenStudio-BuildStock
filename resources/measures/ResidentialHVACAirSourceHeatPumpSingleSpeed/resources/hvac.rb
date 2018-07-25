@@ -37,14 +37,11 @@ class HVAC
 
       end
 
-      # Output variables
-      output_vars = Airflow.create_output_vars(model, ["Zone Mean Air Temperature", "Zone Outdoor Air Drybulb Temperature"])
-
-      tin_sensor = OpenStudio::Model::EnergyManagementSystemSensor.new(model, output_vars["Zone Mean Air Temperature"])
+      tin_sensor = OpenStudio::Model::EnergyManagementSystemSensor.new(model, "Zone Mean Air Temperature")
       tin_sensor.setName("#{obj_name} tin s")
       tin_sensor.setKeyName(unit_living.name.to_s)
 
-      tout_sensor = OpenStudio::Model::EnergyManagementSystemSensor.new(model, output_vars["Zone Outdoor Air Drybulb Temperature"])
+      tout_sensor = OpenStudio::Model::EnergyManagementSystemSensor.new(model, "Zone Outdoor Air Drybulb Temperature")
       tout_sensor.setName("#{obj_name} tt s")
       tout_sensor.setKeyName(unit_living.name.to_s)
 
