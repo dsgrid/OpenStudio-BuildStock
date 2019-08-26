@@ -79,11 +79,19 @@ class DrSetpointModificationWhOs < OpenStudio::Measure::ModelMeasure
       water_heater_setpoint_schedule = model.getObjectByTypeAndName('OS_Schedule_Ruleset'.to_IddObjectType, water_heater_setpoint_schedule_name)
       if water_heater_setpoint_schedule.is_initialized
         water_heater_setpoint_schedule = water_heater_setpoint_schedule.get.to_ScheduleRuleset.get
+				water_heater_setpoint_schedule_copy = water_heater_setpoint_schedule.clone(model)
+				water_heater_setpoint_schedule_copy = water_heater_setpoint_schedule_copy.to_ScheduleRuleset.get
+				water_heater_setpoint_schedule_copy.setName("#{water_heater_setpoint_schedule_name}_copy")
+				runner.registerInfo("Schedule '#{water_heater_setpoint_schedule_copy.name}' was added.")
       else
 				# look for schedule constant
 				water_heater_setpoint_schedule = model.getObjectByTypeAndName('OS_Schedule_Constant'.to_IddObjectType, water_heater_setpoint_schedule_name)
 				if water_heater_setpoint_schedule.is_initialized
 					water_heater_setpoint_schedule = water_heater_setpoint_schedule.get.to_ScheduleConstant.get
+					water_heater_setpoint_schedule_copy = water_heater_setpoint_schedule.clone(model)
+					water_heater_setpoint_schedule_copy = water_heater_setpoint_schedule_copy.to_ScheduleConstant.get
+					water_heater_setpoint_schedule_copy.setName("#{water_heater_setpoint_schedule_name}_copy")
+					runner.registerInfo("Schedule '#{water_heater_setpoint_schedule_copy.name}' was added.")
 				else
 					runner.registerError("ERROR.  Schedule #{water_heater_setpoint_schedule_name} cannot be loaded")
 					return false
@@ -94,11 +102,19 @@ class DrSetpointModificationWhOs < OpenStudio::Measure::ModelMeasure
       plant_setpoint_schedule = model.getObjectByTypeAndName('OS_Schedule_Ruleset'.to_IddObjectType, plant_setpoint_schedule_name)
       if plant_setpoint_schedule.is_initialized
         plant_setpoint_schedule = plant_setpoint_schedule.get.to_ScheduleRuleset.get
+				plant_setpoint_schedule_copy = plant_setpoint_schedule.clone(model)
+				plant_setpoint_schedule_copy = plant_setpoint_schedule_copy.to_ScheduleRuleset.get
+				plant_setpoint_schedule_copy.setName("#{plant_setpoint_schedule_name}_copy")
+				runner.registerInfo("Schedule '#{plant_setpoint_schedule_copy.name}' was added.")
       else
 				# look for schedule constant
 				plant_setpoint_schedule = model.getObjectByTypeAndName('OS_Schedule_Constant'.to_IddObjectType, plant_setpoint_schedule_name)
 				if plant_setpoint_schedule.is_initialized
 					plant_setpoint_schedule = plant_setpoint_schedule.get.to_ScheduleConstant.get
+					plant_setpoint_schedule_copy = plant_setpoint_schedule.clone(model)
+					plant_setpoint_schedule_copy = plant_setpoint_schedule_copy.to_ScheduleConstant.get
+					plant_setpoint_schedule_copy.setName("#{plant_setpoint_schedule_name}_copy")
+					runner.registerInfo("Schedule '#{plant_setpoint_schedule_copy.name}' was added.")
 				else
 					runner.registerError("ERROR.  Schedule #{plant_setpoint_schedule_name} cannot be loaded")
 					return false
@@ -124,15 +140,6 @@ class DrSetpointModificationWhOs < OpenStudio::Measure::ModelMeasure
 					end	
 				end	
       end
-
-    # copy the setpoint schedules
-    schedules_to_copy = Array[water_heater_setpoint_schedule, plant_setpoint_schedule]
-    schedules_to_copy.each do |schedule|
-      schedule_copy = schedule.clone(model)
-      schedule_copy = schedule_copy.to_ScheduleRuleset.get
-      schedule_copy.setName("#{schedule.name.get.to_s}_copy")
-      runner.registerInfo("Schedule '#{schedule_copy.name}' was added.")
-    end
 
     # add ems code to modify setpoint schedules
     # create dr schedule sensor
