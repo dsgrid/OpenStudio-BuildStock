@@ -83,6 +83,9 @@ class DrSetpointModificationWhOs < OpenStudio::Measure::ModelMeasure
 				water_heater_setpoint_schedule_copy = water_heater_setpoint_schedule_copy.to_ScheduleRuleset.get
 				water_heater_setpoint_schedule_copy.setName("#{water_heater_setpoint_schedule_name}_copy")
 				runner.registerInfo("Schedule '#{water_heater_setpoint_schedule_copy.name}' was added.")
+				# create water heater setpoint actuator
+				water_heater_setpoint_actuator = OpenStudio::Model::EnergyManagementSystemActuator.new(water_heater_setpoint_schedule,"Schedule:Year","Schedule Value")
+				water_heater_setpoint_actuator.setName("#{water_heater_setpoint_schedule_name}_act")
       else
 				# look for schedule constant
 				water_heater_setpoint_schedule = model.getObjectByTypeAndName('OS_Schedule_Constant'.to_IddObjectType, water_heater_setpoint_schedule_name)
@@ -92,6 +95,9 @@ class DrSetpointModificationWhOs < OpenStudio::Measure::ModelMeasure
 					water_heater_setpoint_schedule_copy = water_heater_setpoint_schedule_copy.to_ScheduleConstant.get
 					water_heater_setpoint_schedule_copy.setName("#{water_heater_setpoint_schedule_name}_copy")
 					runner.registerInfo("Schedule '#{water_heater_setpoint_schedule_copy.name}' was added.")
+					# create water heater setpoint actuator
+					water_heater_setpoint_actuator = OpenStudio::Model::EnergyManagementSystemActuator.new(water_heater_setpoint_schedule,"Schedule:Constant","Schedule Value")
+					water_heater_setpoint_actuator.setName("#{water_heater_setpoint_schedule_name}_act")
 				else
 					runner.registerError("ERROR.  Schedule #{water_heater_setpoint_schedule_name} cannot be loaded")
 					return false
@@ -106,6 +112,9 @@ class DrSetpointModificationWhOs < OpenStudio::Measure::ModelMeasure
 				plant_setpoint_schedule_copy = plant_setpoint_schedule_copy.to_ScheduleRuleset.get
 				plant_setpoint_schedule_copy.setName("#{plant_setpoint_schedule_name}_copy")
 				runner.registerInfo("Schedule '#{plant_setpoint_schedule_copy.name}' was added.")
+				# create dhw plant loop setpoint actuator
+				plant_setpoint_actuator = OpenStudio::Model::EnergyManagementSystemActuator.new(plant_setpoint_schedule,"Schedule:Year","Schedule Value")
+				plant_setpoint_actuator.setName("#{plant_setpoint_schedule_name}_act")
       else
 				# look for schedule constant
 				plant_setpoint_schedule = model.getObjectByTypeAndName('OS_Schedule_Constant'.to_IddObjectType, plant_setpoint_schedule_name)
@@ -115,6 +124,9 @@ class DrSetpointModificationWhOs < OpenStudio::Measure::ModelMeasure
 					plant_setpoint_schedule_copy = plant_setpoint_schedule_copy.to_ScheduleConstant.get
 					plant_setpoint_schedule_copy.setName("#{plant_setpoint_schedule_name}_copy")
 					runner.registerInfo("Schedule '#{plant_setpoint_schedule_copy.name}' was added.")
+					# create dhw plant loop setpoint actuator
+					plant_setpoint_actuator = OpenStudio::Model::EnergyManagementSystemActuator.new(plant_setpoint_schedule,"Schedule:Constant","Schedule Value")
+					plant_setpoint_actuator.setName("#{plant_setpoint_schedule_name}_act")
 				else
 					runner.registerError("ERROR.  Schedule #{plant_setpoint_schedule_name} cannot be loaded")
 					return false
@@ -156,14 +168,6 @@ class DrSetpointModificationWhOs < OpenStudio::Measure::ModelMeasure
     existing_plant_setpoint = OpenStudio::Model::EnergyManagementSystemSensor.new(model,"Schedule Value")
     existing_plant_setpoint.setName("existing_plant_setpoint_sen")
     existing_plant_setpoint.setKeyName("#{plant_setpoint_schedule_name}_copy")
-
-    # create water heater setpoint actuator
-    water_heater_setpoint_actuator = OpenStudio::Model::EnergyManagementSystemActuator.new(water_heater_setpoint_schedule,"Schedule:Year","Schedule Value")
-    water_heater_setpoint_actuator.setName("#{water_heater_setpoint_schedule_name}_act")
-
-    # create dhw plant loop setpoint actuator
-    plant_setpoint_actuator = OpenStudio::Model::EnergyManagementSystemActuator.new(plant_setpoint_schedule,"Schedule:Year","Schedule Value")
-    plant_setpoint_actuator.setName("#{plant_setpoint_schedule_name}_act")
     
     # create ems program
     setpoint_shift_program = OpenStudio::Model::EnergyManagementSystemProgram.new(model)
