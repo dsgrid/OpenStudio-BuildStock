@@ -80,8 +80,14 @@ class DrSetpointModificationWhOs < OpenStudio::Measure::ModelMeasure
       if water_heater_setpoint_schedule.is_initialized
         water_heater_setpoint_schedule = water_heater_setpoint_schedule.get.to_ScheduleRuleset.get
       else
-        runner.registerError("ERROR.  Schedule #{water_heater_setpoint_schedule_name} cannot be loaded")
-        return false
+				# look for schedule constant
+				water_heater_setpoint_schedule = model.getObjectByTypeAndName('OS_Schedule_Constant'.to_IddObjectType, water_heater_setpoint_schedule_name)
+				if water_heater_setpoint_schedule.is_initialized
+					water_heater_setpoint_schedule = water_heater_setpoint_schedule.get.to_ScheduleRuleset.get
+				else
+					runner.registerError("ERROR.  Schedule #{water_heater_setpoint_schedule_name} cannot be loaded")
+					return false
+				end	
       end
 
     # confirm dhw plant loop setpoint schedule exists
@@ -89,8 +95,14 @@ class DrSetpointModificationWhOs < OpenStudio::Measure::ModelMeasure
       if plant_setpoint_schedule.is_initialized
         plant_setpoint_schedule = plant_setpoint_schedule.get.to_ScheduleRuleset.get
       else
-        runner.registerError("ERROR.  Schedule #{plant_setpoint_schedule_name} cannot be loaded")
-        return false
+				# look for schedule constant
+				plant_setpoint_schedule = model.getObjectByTypeAndName('OS_Schedule_Constant'.to_IddObjectType, plant_setpoint_schedule_name)
+				if plant_setpoint_schedule.is_initialized
+					plant_setpoint_schedule = plant_setpoint_schedule.get.to_ScheduleRuleset.get
+				else
+					runner.registerError("ERROR.  Schedule #{plant_setpoint_schedule_name} cannot be loaded")
+					return false
+				end	
       end
 
     # confirm dr event schedule exists
