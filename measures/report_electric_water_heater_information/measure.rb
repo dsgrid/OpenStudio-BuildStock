@@ -1,0 +1,241 @@
+# insert your copyright here
+
+# see the URL below for information on how to write OpenStudio measures
+# http://nrel.github.io/OpenStudio-user-documentation/reference/measure_writing_guide/
+
+require 'erb'
+
+# start the measure
+class ReportElectricWaterHeaterInformation < OpenStudio::Measure::ReportingMeasure
+  # human readable name
+  def name
+    # Measure name should be the title case of the class name.
+    return 'Report Electric Water Heater Information'
+  end
+
+  # human readable description
+  def description
+    return 'Reports out information on electric water heaters, especially tank volume, power capacity, ambient temperature source, and schedule names.'
+  end
+
+  # human readable description of modeling approach
+  def modeler_description
+    return 'Reports out information on electric water heaters, especially tank volume, power capacity, ambient temperature source, and schedule names. Currently only applies to buildings with a single electric resistance water heater.'
+  end
+
+  # define the arguments that the user will input
+  def arguments
+    args = OpenStudio::Measure::OSArgumentVector.new
+
+    # this measure does not require any user arguments, return an empty list
+
+    return args
+  end
+  
+  # define the outputs that the measure will create
+  def outputs
+    result = OpenStudio::Measure::OSOutputVector.new
+
+    numeric_properties = [
+      "tank_volume_m3",
+      "off_cycle_loss_coefficient_W_per_K",
+      "on_cycle_loss_coefficient_W_per_K",
+      "heater_thermal_efficiency_fraction",
+      "heater_maximum_capacity_W"
+    ]
+    string_properties = [
+      "setpoint_temperature_schedule",
+      "use_flow_rate_fraction_schedule",
+      "ambient_temperature_indicator", # Schedule, Zone, or Outdoors
+      "ambient_temperature_schedule",
+      "ambient_temperature_zone"
+    ]
+    
+    numeric_properties.each do |numeric_property|
+      result << OpenStudio::Measure::OSOutput.makeDoubleOutput(numeric_property)
+    end
+    string_properties.each do |string_property|
+      result << OpenStudio::Measure::OSOutput.makeStringOutput(string_property)
+    end
+
+    return result
+  end
+  
+  # return a vector of IdfObject's to request EnergyPlus objects needed by the run method
+  # Warning: Do not change the name of this method to be snake_case. The method must be lowerCamelCase.
+  def energyPlusOutputRequests(runner, user_arguments)
+    super(runner, user_arguments)
+
+    result = OpenStudio::IdfObjectVector.new
+
+    # use the built-in error checking
+    if !runner.validateUserArguments(arguments, user_arguments)
+      return result
+    end
+
+    return result
+  end
+
+  # define what happens when the measure is run
+  def run(runner, user_arguments)
+    super(runner, user_arguments)
+
+    # use the built-in error checking
+    if !runner.validateUserArguments(arguments, user_arguments)
+      return false
+    end
+
+    # get the last model and sql file
+    model = runner.lastOpenStudioModel
+    if model.empty?
+      runner.registerError("Cannot find last model.")
+      return false
+    end
+		model = model.get
+		
+		# get water heater(s)
+		water_heaters = []
+		water_heaters += model.getWaterHeaterMixeds
+		num_water_heater_mixeds = water_heaters.length
+		water_heaters += model.getWaterHeaterStratifieds
+		num_water_heater_stratifieds = water_heaters.length - num_water_heater_mixeds
+		
+		# puts "The model has #{num_water_heater_mixeds} WaterHeater:Mixed objects"
+		# puts "The model has #{num_water_heater_stratifieds} WaterHeater:Stratified objects"
+		# puts "The water heater array has a length of #{water_heaters.length}"
+
+    # this reporting measure is only applicable if there is a single 
+    # WaterHeater:Mixed or WaterHeater:Stratified with Electricity as the Heater Fuel Type
+		# check number of water heaters
+    if water_heaters.length != 1
+      runner.registerAsNotApplicable("Measure is not applicable because the number of WaterHeater:Mixed and/or WaterHeater:Stratified objects is #{water_heaters.length}, not 1.")
+      return true
+    end
+    water_heater = water_heaters[0]
+		# get water heater type
+		if num_water_heater_mixeds == 1
+			water_heater_type = "WaterHeater:Mixed"
+		elsif num_water_heater_stratifieds == 1
+			water_heater_type = "WaterHeater:Sratified"
+		else
+			runner.registerError("Unexpected number of water heaters: #{num_water_heater_mixeds} WaterHeater:Mixed and #{num_water_heater_stratifieds} WaterHeater:Stratified")
+			return false
+		end
+		# check water heater fuel type
+		heater_fuel_type = water_heater.heaterFuelType
+    if heater_fuel_type != "Electricity"
+      runner.registerAsNotApplicable("Measure is not applicable because the #{water_heater_type} uses a fuel (#{heater_fuel_type}) other than electricity.")
+      return true
+    end
+		
+    # register tank volume
+		if water_heater.tankVolume.is_initialized
+			runner.registerValue("tank_volume_m3", water_heater.tankVolume.get)
+			runner.registerInfo("Registering #{water_heater.tankVolume.get} for tank_volume_m3")
+		else
+			runner.registerError("Tank volume not specified for #{water_heater_type}: #{water_heater.name.get.to_s}")
+			return false
+		end
+		
+		# register off cycle loss coefficient
+		if water_heater.offCycleLossCoefficienttoAmbientTemperature.is_initialized
+			runner.registerValue("off_cycle_loss_coefficient_W_per_K", water_heater.offCycleLossCoefficienttoAmbientTemperature.get)
+			runner.registerInfo("Registering #{water_heater.offCycleLossCoefficienttoAmbientTemperature.get} for off_cycle_loss_coefficient_W_per_K")
+		else
+			runner.registerError("Off cycle loss coefficient not specified for #{water_heater_type}: #{water_heater.name.get.to_s}")
+			return false
+		end
+		
+		# register on cycle loss coefficient
+		if water_heater.onCycleLossCoefficienttoAmbientTemperature.is_initialized
+			runner.registerValue("on_cycle_loss_coefficient_W_per_K", water_heater.onCycleLossCoefficienttoAmbientTemperature.get)
+			runner.registerInfo("Registering #{water_heater.onCycleLossCoefficienttoAmbientTemperature.get} for on_cycle_loss_coefficient_W_per_K")
+		else
+			runner.registerError("On cycle loss coefficient not specified for #{water_heater_type}: #{water_heater.name.get.to_s}")
+			return false
+		end
+		
+		# register heater thermal efficiency
+		if water_heater.heaterThermalEfficiency.is_initialized
+			runner.registerValue("heater_thermal_efficiency_fraction", water_heater.heaterThermalEfficiency.get)
+			runner.registerInfo("Registering #{water_heater.heaterThermalEfficiency.get} for heater_thermal_efficiency_fraction")
+		else
+			runner.registerError("Heater thermal efficiency not specified for #{water_heater_type}: #{water_heater.name.get.to_s}")
+			return false
+		end
+		
+		# register maximum capacity
+		if water_heater.heaterMaximumCapacity.is_initialized
+			runner.registerValue("heater_maximum_capacity_W", water_heater.heaterMaximumCapacity.get)
+			runner.registerInfo("Registering #{water_heater.heaterMaximumCapacity.get} for heater_maximum_capacity_W")
+		else
+			runner.registerError("Heater maximum capacity not specified for #{water_heater_type}: #{water_heater.name.get.to_s}")
+			return false
+		end
+		
+		# register setpoint temperature schedule name
+		if water_heater.setpointTemperatureSchedule.is_initialized
+			runner.registerValue("setpoint_temperature_schedule", water_heater.setpointTemperatureSchedule.get.name.get.to_s)
+			runner.registerInfo("Registering #{water_heater.setpointTemperatureSchedule.get.name.get.to_s} for setpoint_temperature_schedule")
+		else
+			runner.registerError("Setpoint temperature schedule not specified for #{water_heater_type}: #{water_heater.name.get.to_s}")
+			return false
+		end
+		
+		# register use flow rate schedule name
+		if water_heater.useFlowRateFractionSchedule.is_initialized
+			runner.registerValue("use_flow_rate_fraction_schedule", water_heater.useFlowRateFractionSchedule.get.name.get.to_s)
+			runner.registerInfo("Registering #{water_heater.useFlowRateFractionSchedule.get.name.get.to_s} for use_flow_rate_fraction_schedule")
+		else
+			runner.registerValue("use_flow_rate_fraction_schedule", "NA")
+			runner.registerInfo("Registering NA for use_flow_rate_fraction_schedule")
+		end
+		
+		# register ambient temperature indicator
+		amb_temp_indicator = water_heater.ambientTemperatureIndicator
+		runner.registerValue("ambient_temperature_indicator", amb_temp_indicator)
+		runner.registerInfo("Registering #{amb_temp_indicator} for ambient_temperature_indicator")
+		
+		# register ambient temperature zone
+		if amb_temp_indicator == "ThermalZone"
+			# register ambient temperature schedule
+			runner.registerValue("ambient_temperature_schedule", "NA")
+			runner.registerInfo("Registering NA for ambient_temperature_schedule")
+			# register ambient temperature zone
+			if water_heater.ambientTemperatureThermalZone.is_initialized
+				runner.registerValue("ambient_temperature_zone", water_heater.ambientTemperatureThermalZone.get.name.get.to_s)
+				runner.registerInfo("Registering #{water_heater.ambientTemperatureThermalZone.get.name.get.to_s} for ambient_temperature_zone")
+			else
+				runner.registerError("Ambient temperature zone not specified for #{water_heater_type}: #{water_heater.name.get.to_s}")
+				return false
+			end
+		elsif amb_temp_indicator == "Schedule"
+			# register ambient temperature zone
+			runner.registerValue("ambient_temperature_zone", "NA")
+			runner.registerInfo("Registering NA for ambient_temperature_zone")
+			# register ambient temperature schedule
+			if water_heater.ambientTemperatureSchedule.is_initialized
+				runner.registerValue("ambient_temperature_schedule", water_heater.ambientTemperatureSchedule.get.name.get.to_s)
+				runner.registerInfo("Registering #{water_heater.ambientTemperatureSchedule.get.name.get.to_s} for ambient_temperature_schedule")
+			else
+				runner.registerError("Ambient temperature schedule not specified for #{water_heater_type}: #{water_heater.name.get.to_s}")
+				return false
+			end
+		elsif amb_temp_indicator == "Outdoors"
+			# register ambient temperature schedule
+			runner.registerValue("ambient_temperature_schedule", "NA")
+			runner.registerInfo("Registering NA for ambient_temperature_schedule")
+			# register ambient temperature zone
+			runner.registerValue("ambient_temperature_zone", "NA")
+			runner.registerInfo("Registering NA for ambient_temperature_zone")
+		else
+			runner.registerError("Unexpected ambient temperature indicator (#{amb_temp_indicator}) for #{water_heater_type}: #{water_heater.name.get.to_s}; expecting Zone, Schedule, or Outdoors")
+			return false
+		end	
+    
+    return true
+  end
+end
+
+# register the measure to be used by the application
+ReportElectricWaterHeaterInformation.new.registerWithApplication
