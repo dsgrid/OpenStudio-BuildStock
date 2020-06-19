@@ -1,11 +1,89 @@
-## ResStock v2.2.0 (pending)
+## ResStock v2.3.0 (pending)
 
 Features
+- Remove the single-family detached project, and remove PAT from the testing and multifamily projects ([#402](https://github.com/NREL/OpenStudio-BuildStock/pull/402))
+- Relocate the data folder, along with tsv makers, to a separate private repository ([#401](https://github.com/NREL/OpenStudio-BuildStock/pull/401))
+- Update the single-family detached and multifamily projects with more up-to-date lighting stock distributions ([#392](https://github.com/NREL/OpenStudio-BuildStock/pull/392))
+- Update Insulation Finished Attic tsv with more options for insulation levels ([#395](https://github.com/NREL/OpenStudio-BuildStock/pull/395))
+- Add ability to ignore comment lines with the "#" symbol ([#408](https://github.com/NREL/OpenStudio-BuildStock/pull/408))
+- Update occupant and plug loads equations based on RECS 2015 data; replace floor area with occupants as independent variable in plug loads equation; allow modeling of zero-bedroom units (e.g., studios) ([#324](https://github.com/NREL/OpenStudio-BuildStock/pull/324))
+- New geospatial characteristics have been added or updated. New geospatial characteristics are as follows: ASHRAE IECC Climate Zone 2004, State, County, PUMA, Census Division, Census Region, Building America Climate Zone, and ISO/RTO Region. The top level housing characteristic is now ASHRAE IECC Climate Zone 2004. Now using data from the American Community Survey Public Use Microdata Sample (ACS PUMS) for Building Type, Vintage, and Heating Fuel ([#416](https://github.com/NREL/OpenStudio-BuildStock/pull/416))
+- Update HVAC System Cooling tsv with air-conditioning saturations ("None", "Room AC", or "Central AC") from American Housing Survey for Custom Region 04. Efficiency probabilities remain based on RECS 2009 ([#418](https://github.com/NREL/OpenStudio-BuildStock/pull/418))
+- Diversify the timing heating and cooling setpoint setbacks ([#414](https://github.com/NREL/OpenStudio-BuildStock/pull/414))
+- Reduce the number of appliances in multifamily units. Adding RECS building type as a dependencies to clothes washers, clothes dryers, dishwashers, refrigerators, extra refrigerators, and stand-alone freezers. Update refrigeration levels based on RECS 2009 age and shipment-weighted efficiency by year. Now using the American Housing Survey (AHS) for clothes washer and clothes dryer saturations. New geographic field, AHS Region, which uses the top 15 largest Core Based Statistical Areas (CBSAs) and Non-CBSA Census Divisions. ([420](https://github.com/NREL/OpenStudio-BuildStock/pull/420))
+- Exterior lighting schedule changed from using interior lighting sunrise/sunset algorithm to T24 2016 Residential ACM Appendix C Table 8 Exterior Lighting Hourly Multiplier for weekdays and weekends ([#419](https://github.com/NREL/OpenStudio-BuildStock/pull/419))
+- Increase the diversity of the floor areas that are simulated. Geometry House Size has been replaced by Geometry Floor Area Bin and Geometry Floor Area. Now using AHS for specifying the floor area. Floor areas differ by non-Core Based Statistical Areas (CBSAs) Census Divisions and the top 15 largest CBSAs ([#425](https://github.com/NREL/OpenStudio-BuildStock/pull/425))
+- Increase the diversity of the infiltration simulated. Now using the Residential Diagnostics Database for the Infiltration housing characteristic ([#427](https://github.com/NREL/OpenStudio-BuildStock/pull/427))
+- Allow a key value to be specified when outputting timeseries variables ([#438](https://github.com/NREL/OpenStudio-BuildStock/pull/438))
+
+Fixes
+- Add mini-split heat pump pan heater to custom meter for heating electricity ([#454](https://github.com/NREL/OpenStudio-BuildStock/pull/454))
+- Assign daylight saving start/end dates based on county and not epw region ([#453](https://github.com/NREL/OpenStudio-BuildStock/pull/453))
+- Update ceiling fan tsv to remove the "National Average" option, and instead sample 28% "None" and 72% "Standard Efficiency" ([#445](https://github.com/NREL/OpenStudio-BuildStock/pull/445))
+- Remove Location Weather Filename and Location Weather Year tsvs, and update options lookup to reflect updated weather file changes; weather filenames are now required to match what is in the options lookup ([#432](https://github.com/NREL/OpenStudio-BuildStock/pull/432))
+- Fix bug in QOI reporting measure where absence of any heating/cooling/overlap seasons would cause errors ([#433](https://github.com/NREL/OpenStudio-BuildStock/pull/433))
+- Restructure unfinished attic and finished roof -related tsv files (i.e., insulation, roof material, and radiant barrier) and options ([#426](https://github.com/NREL/OpenStudio-BuildStock/pull/426))
+- Exclude net site energy consumption from annual and timeseries simulation output ("total" now reflects net of pv); change `include_enduse_subcategories` argument default to "true"; report either total interior equipment OR each of its components ([#405](https://github.com/NREL/OpenStudio-BuildStock/pull/405))
+- Refactor the tsv maker classes to accommodate more data sources ([#392](https://github.com/NREL/OpenStudio-BuildStock/pull/392))
+- Allow a building to be simulated with no water heater; map the "Other Fuel" option from the Water Heater tsv to no water heater ([#375](https://github.com/NREL/OpenStudio-BuildStock/pull/375))
+- Revert plug load schedule to RBSA for the National Average option ([#355](https://github.com/NREL/OpenStudio-BuildStock/pull/355))
+- Removed the "Geometry Unit Stories SF" and "Geometry Unit Stories MF" housing characteristics. Unit stories are instead represented by the "Geometry Stories" housing characteristic ([#416](https://github.com/NREL/OpenStudio-BuildStock/pull/416))
+- Diversify window to wall ratio variation using the Residential Building Stock Assessment (RBSA) II data ([#412](https://github.com/NREL/OpenStudio-BuildStock/pull/412))
+- Fix bug in assigning small window areas to surfaces ([#452](https://github.com/NREL/OpenStudio-BuildStock/pull/452))
+
+## ResStock v2.2.4
+###### April 28, 2020 - [Diff](https://github.com/NREL/OpenStudio-BuildStock/compare/v2.2.3...v2.2.4)
+
+Fixes
+- Fix bug in options lookup where buildings without heating systems were not being assigned the required "has_hvac_flue" airflow measure argument ([#442](https://github.com/NREL/OpenStudio-BuildStock/pull/442))
+
+## ResStock v2.2.3
+###### March 9, 2020 - [Diff](https://github.com/NREL/OpenStudio-BuildStock/compare/v2.2.2...v2.2.3)
+
+Fixes
+- Update the weather zip file url in each PAT project to point to data.nrel.gov ([#422](https://github.com/NREL/OpenStudio-BuildStock/pull/422))
+
+## ResStock v2.2.2
+###### February 19, 2020 - [Diff](https://github.com/NREL/OpenStudio-BuildStock/compare/v2.2.1...v2.2.2)
+
+Fixes
+- Update the datapoint initialization script to download weather files to a common zip filename ([#406](https://github.com/NREL/OpenStudio-BuildStock/pull/406))
+
+## ResStock v2.2.1
+###### February 7, 2020 - [Diff](https://github.com/NREL/OpenStudio-BuildStock/compare/v2.2.0...v2.2.1)
+
+Features
+- Update the multifamily project with a Geometry Wall Type tsv file for sampling between wood stud and masonry walls ([#382](https://github.com/NREL/OpenStudio-BuildStock/pull/382))
+
+Fixes
+- Add generation of the Geometry Wall Type tsv file for the single-family detached project to the 2009 RECS tsv maker; this corrects the tsv file ([#387](https://github.com/NREL/OpenStudio-BuildStock/pull/387))
+- Add generation of the Misc Pool tsv file (with Geometry Building Type and Location Region dependencies) to the 2009 RECS tsv maker; this also corrects having pool pumps for all homes ([#387](https://github.com/NREL/OpenStudio-BuildStock/pull/387))
+- Refactor the RECS tsv makers for years 2009 and 2015 ([#382](https://github.com/NREL/OpenStudio-BuildStock/pull/382))
+
+## ResStock v2.2.0
+###### January 30, 2020 - [Diff](https://github.com/NREL/OpenStudio-BuildStock/compare/v2.1.0...v2.2.0)
+
+Features
+- The results csv now optionally reports annual totals for all end use subcategories, including appliances, plug loads, etc. ([#371](https://github.com/NREL/OpenStudio-BuildStock/pull/371))
+- Split out national average options so not all homes have all miscellaneous equipment, and add none options to appliances ([#362](https://github.com/NREL/OpenStudio-BuildStock/pull/362))
+- Update the single-family detached project with a Geometry Wall Type tsv file for sampling between wood stud and masonry walls ([#357](https://github.com/NREL/OpenStudio-BuildStock/pull/357))
+- Made housing characteristics a consistent format. Added integrity check to ensure housing characteristics follow the guildelines specified in read-the-docs ([#353](https://github.com/NREL/OpenStudio-BuildStock/pull/353))
+- Include additional "daylight saving time" and "utc time" columns to timeseries csv file to account for one hour forward and backward time shifts ([#346](https://github.com/NREL/OpenStudio-BuildStock/pull/346))
+- Update bedrooms and occupants tsv files with options and probability distributions based on RECS 2015 data ([#340](https://github.com/NREL/OpenStudio-BuildStock/pull/340))
 - Add new QOIReport measure for reporting seasonal quantities of interest for uncertainty quantification ([#334](https://github.com/NREL/OpenStudio-BuildStock/pull/334))
 - Separate tsv files for bedrooms, cooking range schedule, corridor, holiday lighting, interior/other lighting use, pool schedule, plug loads schedule, and refrigeration schedule ([#338](https://github.com/NREL/OpenStudio-BuildStock/pull/338))
 
 Fixes
+- Allow Wood Stove option as an upgrade, and account for wood heating energy in simulation output ([#372](https://github.com/NREL/OpenStudio-BuildStock/pull/372))
+- Custom meters for ceiling fan, hot water recirc pump, and vehicle end use subcategories were not properly implemented ([#371](https://github.com/NREL/OpenStudio-BuildStock/pull/371))
+- Some re-labeling of tsv files, such as "Geometry Building Type" to "Geometry Building Type RECS" and "Geometry Building Type FPL" to "Geometry Building Type ACS" ([#356](https://github.com/NREL/OpenStudio-BuildStock/pull/356))
+- Removes option "Auto" from parameter "Occupants" in the options lookup file ([#360](https://github.com/NREL/OpenStudio-BuildStock/pull/360))
+- Update the multifamily project's neighbors and orientation tsv files to have geometry building type dependency; remove the now obsolete "Geometry Is Multifamily Low Rise.tsv" file ([#350](https://github.com/NREL/OpenStudio-BuildStock/pull/350))
+- Update each PAT project's AMI selection to "2.9.0" ([#346](https://github.com/NREL/OpenStudio-BuildStock/pull/346))
+- Fixes for custom output meters: total site electricity double-counting exterior holiday lighting, and garage lighting all zeroes ([#349](https://github.com/NREL/OpenStudio-BuildStock/pull/349))
+- Remove shared facades tsv files from the multifamily_beta and testing projects ([#301](https://github.com/NREL/OpenStudio-BuildStock/pull/301))
 - Move redundant output meter code from individual reporting measures out into shared resource file ([#334](https://github.com/NREL/OpenStudio-BuildStock/pull/334))
+- Fix for the power outages measure where the last hour of the day was not getting the new schedule applied ([#238](https://github.com/NREL/OpenStudio-BuildStock/pull/238))
 
 ## ResStock v2.1.0
 ###### November 5, 2019 - [Diff](https://github.com/NREL/OpenStudio-BuildStock/compare/v2.0.0...v2.1.0)
