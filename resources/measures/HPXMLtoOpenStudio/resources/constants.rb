@@ -71,6 +71,14 @@ class Constants
     return 1e-9
   end
 
+  def self.PeakFlowRate
+    return 500 # gal/min
+  end
+
+  def self.PeakPower
+    return 100 # kWh
+  end
+
   # Strings --------------------
 
   def self.AirFilm
@@ -1426,6 +1434,14 @@ class Constants
     return 'central fan integrated supply'
   end
 
+  def self.WaterHeaterDrawProfileTypeRealistic
+    return 'realistic'
+  end
+
+  def self.WaterHeaterDrawProfileTypeSmooth
+    return 'smooth'
+  end
+
   def self.WaterHeaterTypeTankless
     return 'tankless'
   end
@@ -1434,8 +1450,40 @@ class Constants
     return 'tank'
   end
 
+  def self.WaterHeaterTypeTankModelTypeMixed
+    return 'mixed'
+  end
+
+  def self.WaterHeaterTypeTankModelTypeStratified
+    return 'stratified'
+  end
+
   def self.WaterHeaterTypeHeatPump
     return 'heatpump'
+  end
+
+  def self.WaterHeaterSetpointTypeConstant
+    return 'constant'
+  end
+
+  def self.WaterHeaterSetpointTypeScheduled
+    return 'scheduled'
+  end
+
+  def self.WaterHeaterOperatingModeTypeConstant
+    return 'constant'
+  end
+
+  def self.WaterHeaterOperatingModeTypeScheduled
+    return 'scheduled'
+  end
+
+  def self.WaterHeaterOperatingModeStandard
+    return 'standard'
+  end
+
+  def self.WaterHeaterOperatingModeHeatPumpOnly
+    return 'heat pump only'
   end
 
   def self.WorkflowDescription
