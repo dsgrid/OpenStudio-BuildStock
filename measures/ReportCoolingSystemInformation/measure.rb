@@ -77,6 +77,14 @@ class ReportCoolingSystemInformation < OpenStudio::Ruleset::ReportingUserScript
     end
 		model = model.get
 		
+		# get cooling coil(s)
+		cooling_coils = model.getCoilCoolingDXSingleSpeeds
+		
+		if cooling_coils.length == 0
+      runner.registerAsNotApplicable("Number of CoilCoolingDXSingleSpeed objects is #{cooling_coils.length}; measure is not applicable")
+      return true
+		end	
+		
 		# get conditioned thermal zones
 		living_room_zone = false
 		finished_basement_zone = false
@@ -110,33 +118,44 @@ class ReportCoolingSystemInformation < OpenStudio::Ruleset::ReportingUserScript
 		runner.registerValue("living_room_area_fraction", living_room_area_fraction)
 		runner.registerInfo("Registering #{living_room_area_fraction} for living_room_area_fraction")
 		
-		# get cooling coil
-		cooling_coils = model.getCoilCoolingDXSingleSpeeds
+		cooling_coil_hash = {}
+		total_cooling_capacity = 0
+		capacity_weighted_cop = 0
 		
-		# unless cooling_coils.length == 1
-      # runner.registerWarning("Number of CoilCoolingDXSingleSpeed objects is #{cooling_coils.length}, not 1.")
-      # return true
-		# end	
-		
-		cooling_coil = cooling_coils[0]
-		
-		# get coil nominal cop
-		if cooling_coil.ratedCOP.is_initialized
-			runner.registerValue("dx_cooling_nominal_cop", cooling_coil.ratedCOP.get)
-			runner.registerInfo("Registering #{cooling_coil.ratedCOP.get} for dx_cooling_nominal_cop")
-		else
-			runner.registerError("Rated COP not specified for Single Speed DX Coil: #{cooling_coil.name.get.to_s}")
-			return false
+		cooling_coils.each do |cooling_coil|
+			# create hash entry
+			cooling_coil_name = cooling_coil.name.get.to_s
+			cooling_coil_hash[cooling_coil_name] = {}
+			# get coil nominal COP
+			if cooling_coil.ratedCOP.is_initialized
+				cooling_coil_hash[cooling_coil_name]["COP"] = cooling_coil.ratedCOP.get
+			else
+				runner.registerError("Rated COP not specified for Single Speed DX Coil: #{cooling_coil_name}")
+				return false
+			end
+			# get coil nominal capacity
+			if cooling_coil.ratedTotalCoolingCapacity.is_initialized
+				cooling_coil_hash[cooling_coil_name]["Capacity"] = cooling_coil.ratedTotalCoolingCapacity.get
+			else
+				runner.registerError("Nominal capacity not specified for Single Speed DX Coil: #{cooling_coil.name.get.to_s}")
+				return false
+			end
 		end
 		
-		# get coil nominal capacity
-		if cooling_coil.ratedTotalCoolingCapacity.is_initialized
-			runner.registerValue("dx_cooling_nominal_capacity", cooling_coil.ratedTotalCoolingCapacity.get)
-			runner.registerInfo("Registering #{cooling_coil.ratedTotalCoolingCapacity.get} for dx_cooling_nominal_capacity")
-		else
-			runner.registerError("Nominal capacity not specified for Single Speed DX Coil: #{cooling_coil.name.get.to_s}")
-			return false
+		# calculate total capacity and capacity-weighted COP
+		cooling_coil_hash.keys.each do |cooling_coil_name|
+			total_cooling_capacity += cooling_coil_hash[cooling_coil_name]["Capacity"]
+			capacity_weighted_cop += cooling_coil_hash[cooling_coil_name]["COP"] * cooling_coil_hash[cooling_coil_name]["Capacity"]
 		end
+		capacity_weighted_cop = capacity_weighted_cop / total_cooling_capacity
+		
+		# register capacity-weighted cop
+		runner.registerValue("dx_cooling_nominal_cop", capacity_weighted_cop)
+		runner.registerInfo("Registering #{capacity_weighted_cop.round(2)} for dx_cooling_nominal_cop")
+		
+		# register total capacity
+		runner.registerValue("dx_cooling_nominal_capacity", total_cooling_capacity)
+		runner.registerInfo("Registering #{total_cooling_capacity.round(2)} for dx_cooling_nominal_capacity")
     
     return true
  
