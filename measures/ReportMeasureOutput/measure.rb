@@ -104,12 +104,24 @@ include OsLib_HelperMethods
 		event_end_time = OsLib_HelperMethods.check_upstream_measure_for_arg(runner, "event_end_time")
 
 		# register event start time
-		runner.registerValue("event_start_time", event_start_time)
-		runner.registerInfo("Registering #{event_start_time.round(2)} for event_start_time")
+		if !event_start_time.empty?
+			measure_name = event_start_time[:measure_name]
+			value = event_start_time[:value]
+			runner.registerInfo("Registering #{value.round(2)} (from measure #{measure_name}) for event_start_time")
+			runner.registerValue("event_start_time", value)
+		else
+			runner.registerInfo("No value found for event_start_time")
+		end
 
 		# register event end time
-		runner.registerValue("event_end_time", event_end_time)
-		runner.registerInfo("Registering #{event_end_time.round(2)} for event_end_time")
+		if !event_end_time.empty?
+			measure_name = event_end_time[:measure_name]
+			value = event_end_time[:value]
+			runner.registerInfo("Registering #{value.round(2)} (from measure #{measure_name}) for event_end_time")
+			runner.registerValue("event_end_time", value)
+		else
+			runner.registerInfo("No value found for event_end_time")
+		end
 
     # close the sql file
     # sql_file.close
