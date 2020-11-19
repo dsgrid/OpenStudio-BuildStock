@@ -203,8 +203,18 @@ def run_measure(model, measure, argument_map, runner)
     result_child.errors.each do |error|
       runner.registerError(error.logMessage)
     end
+	
     if result_child.errors.size > 0
       return false
+    end
+		
+    result_child.stepValues.each do |step_value|
+      name = step_value.name.to_s
+			if name.include? "_map_to_parent_runner"
+				reporting_name = name.gsub("_map_to_parent_runner","")
+				value = step_value.valueAsVariant.to_s
+				runner.registerValue(reporting_name, value)
+			end
     end
 
     # convert a return false in the measure to a return false and error here.
