@@ -107,7 +107,7 @@ include OsLib_HelperMethods
 		if !event_start_time.empty?
 			measure_name = event_start_time[:measure_name]
 			value = event_start_time[:value]
-			runner.registerInfo("Registering #{value.round(2)} (from measure #{measure_name}) for event_start_time")
+			runner.registerInfo("Registering #{value} (from measure #{measure_name}) for event_start_time")
 			runner.registerValue("event_start_time", value)
 		else
 			runner.registerInfo("No value found for event_start_time")
@@ -117,7 +117,7 @@ include OsLib_HelperMethods
 		if !event_end_time.empty?
 			measure_name = event_end_time[:measure_name]
 			value = event_end_time[:value]
-			runner.registerInfo("Registering #{value.round(2)} (from measure #{measure_name}) for event_end_time")
+			runner.registerInfo("Registering #{value} (from measure #{measure_name}) for event_end_time")
 			runner.registerValue("event_end_time", value)
 		else
 			runner.registerInfo("No value found for event_end_time")
