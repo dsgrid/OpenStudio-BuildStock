@@ -2,12 +2,12 @@
   <schema_version>3.0</schema_version>
   <name>residential_hot_water_heater_tank</name>
   <uid>0f2214ac-12ca-4350-9942-8d1fb1277608</uid>
-  <version_id>91855d6f-3112-47f7-b8da-11407fa9f6a9</version_id>
-  <version_modified>20201009T011509Z</version_modified>
+  <version_id>14df1cda-ec41-4d23-995e-dd68c3c8775f</version_id>
+  <version_modified>20210107T191713Z</version_modified>
   <xml_checksum>9882CBDB</xml_checksum>
   <class_name>ResidentialHotWaterHeaterTank</class_name>
   <display_name>Set Residential Tank Water Heater</display_name>
-  <description>This measure adds a new residential storage water heater to the model based on user inputs. If there is already an existing residential water heater in the model, it is replaced. For multifamily buildings, the water heater can be set for all units of the building. See https://github.com/NREL/OpenStudio-BuildStock#workflows for supported workflows using this measure.</description>
+  <description>This measure adds a new residential storage water heater to the model based on user inputs. If there is already an existing residential water heater in the model, it is replaced. For multifamily buildings, the water heater can be set for all units of the building. See https://github.com/NREL/resstock#workflows for supported workflows using this measure.</description>
   <modeler_description>The measure will create a new instance of the OS:WaterHeater:Mixed object representing a storage water heater. The water heater will be placed on the plant loop 'Domestic Hot Water Loop'. If this loop already exists, any water heater on that loop will be removed and replaced with a water heater consistent with this measure. If it doesn't exist, it will be created.</modeler_description>
   <arguments>
     <argument>
@@ -230,19 +230,55 @@
       <filename>hourly_setpoint_schedule.csv</filename>
       <filetype>csv</filetype>
       <usage_type>resource</usage_type>
+      <checksum>B3202901</checksum>
+    </file>
+    <file>
+      <filename>hourly_schedule_high_above_140.csv</filename>
+      <filetype>csv</filetype>
+      <usage_type>resource</usage_type>
+      <checksum>3B35C026</checksum>
+    </file>
+    <file>
+      <filename>hourly_schedule_high_above_212.csv</filename>
+      <filetype>csv</filetype>
+      <usage_type>resource</usage_type>
+      <checksum>16B39C36</checksum>
+    </file>
+    <file>
+      <filename>hourly_schedule_low_below_0.csv</filename>
+      <filetype>csv</filetype>
+      <usage_type>resource</usage_type>
+      <checksum>7BC74F60</checksum>
+    </file>
+    <file>
+      <filename>hourly_schedule_low_below_110.csv</filename>
+      <filetype>csv</filetype>
+      <usage_type>resource</usage_type>
+      <checksum>446D9749</checksum>
+    </file>
+    <file>
+      <filename>hourly_setpoint_schedule_feb.csv</filename>
+      <filetype>csv</filetype>
+      <usage_type>resource</usage_type>
+      <checksum>DCD58087</checksum>
+    </file>
+    <file>
+      <filename>hourly_setpoint_schedule_leapyear.csv</filename>
+      <filetype>csv</filetype>
+      <usage_type>resource</usage_type>
       <checksum>9642842F</checksum>
+    </file>
+    <file>
+      <filename>wrong_length_schedule.csv</filename>
+      <filetype>csv</filetype>
+      <usage_type>resource</usage_type>
+      <checksum>D56796AD</checksum>
     </file>
     <file>
       <filename>ResidentialWaterHeaterTank_Test.rb</filename>
       <filetype>rb</filetype>
       <usage_type>test</usage_type>
-      <checksum>EF01CB0C</checksum>
-    </file>
-    <file>
-      <filename>ResidentialWaterHeaterTank_Test.rb.bak</filename>
-      <filetype>bak</filetype>
-      <usage_type>test</usage_type>
-      <checksum>BA9773F5</checksum>
+      <checksum>2AAD20FC</checksum>
     </file>
   </files>
 </measure>

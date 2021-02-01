@@ -20,9 +20,12 @@ class Waterheater
       runner.registerError("Rated energy factor must be greater than 0 and less than 1.")
       return false
     end
-    if t_set <= 0 or t_set >= 212
-      runner.registerError("Hot water temperature must be greater than 0 and less than 212.")
+    if (set_type == Constants.WaterHeaterSetpointTypeConstant) and (t_set < 0 or t_set > 212)
+      runner.registerError("Water heater temperature setpoint must not be less than 0F or greater than 212F.")
       return false
+    end
+    if (set_type == Constants.WaterHeaterSetpointTypeConstant) and (t_set < 110 or t_set > 140)
+      runner.registerWarning("Water heater temperature setpoint is outside of recommended range (110F - 140F).")
     end
     if cap <= 0
       runner.registerError("Nominal capacity must be greater than 0.")
@@ -66,6 +69,8 @@ class Waterheater
 
     if loop.supplyOutletNode.setpointManagers.empty?
       new_manager = create_new_schedule_manager(set_type, t_set, sch_file, model, runner, Constants.WaterHeaterTypeTank)
+      return false if not new_manager
+
       new_manager.addToNode(loop.supplyOutletNode)
     end
 
@@ -76,8 +81,13 @@ class Waterheater
     if storage_tank.nil?
       loop.addSupplyBranchForComponent(new_heater)
     else
-      storage_tank.setHeater1SetpointTemperatureSchedule(new_heater.setpointTemperatureSchedule.get)
-      storage_tank.setHeater2SetpointTemperatureSchedule(new_heater.setpointTemperatureSchedule.get)
+      if tank_model_type == Constants.WaterHeaterTypeTankModelTypeStratified
+        storage_tank.setHeater1SetpointTemperatureSchedule(new_heater.heater1SetpointTemperatureSchedule)
+        storage_tank.setHeater2SetpointTemperatureSchedule(new_heater.heater2SetpointTemperatureSchedule)
+      elsif tank_model_type == Constants.WaterHeaterTypeTankModelTypeMixed
+        storage_tank.setHeater1SetpointTemperatureSchedule(new_heater.setpointTemperatureSchedule.get)
+        storage_tank.setHeater2SetpointTemperatureSchedule(new_heater.setpointTemperatureSchedule.get)
+      end
       new_heater.addToNode(storage_tank.supplyOutletModelObject.get.to_Node.get)
     end
 
@@ -92,9 +102,12 @@ class Waterheater
       runner.registerError("Rated energy factor must be greater than 0 and less than or equal to 1.")
       return false
     end
-    if t_set <= 0 or t_set >= 212
-      runner.registerError("Hot water temperature must be greater than 0 and less than 212.")
+    if t_set < 0 or t_set > 212
+      runner.registerError("Water heater temperature setpoint must not be less than 0F or greater than 212F.")
       return false
+    end
+    if t_set < 110 or t_set > 140
+      runner.registerWarning("Water heater temperature setpoint is outside of recommended range (110F - 140F).")
     end
     if cap <= 0
       runner.registerError("Nominal capacity must be greater than 0.")
@@ -137,6 +150,8 @@ class Waterheater
 
     if loop.supplyOutletNode.setpointManagers.empty?
       new_manager = create_new_schedule_manager(set_type, t_set, sch_file, model, runner, Constants.WaterHeaterTypeTankless)
+      return false if not new_manager
+
       new_manager.addToNode(loop.supplyOutletNode)
     end
 
@@ -167,9 +182,12 @@ class Waterheater
       runner.registerError("Storage tank volume must be greater than 0.")
       return false
     end
-    if t_set <= 0.0 or t_set >= 212.0
-      runner.registerError("Hot water temperature must be greater than 0 and less than 212.")
+    if (sp_type == Constants.WaterHeaterSetpointTypeConstant) and (t_set < 0 or t_set > 212)
+      runner.registerError("Water heater temperature setpoint must not be less than 0F or greater than 212F.")
       return false
+    end
+    if (sp_type == Constants.WaterHeaterSetpointTypeConstant) and (t_set < 110 or t_set > 140)
+      runner.registerWarning("Water heater temperature setpoint is outside of recommended range (110F - 140F).")
     end
     if e_cap < 0.0
       runner.registerError("Element capacity must be greater than 0.")
@@ -245,7 +263,9 @@ class Waterheater
     end
 
     if loop.supplyOutletNode.setpointManagers.empty?
-      new_manager = create_new_schedule_manager(sp_type, t_set, sp_schedule_file, model, Constants.WaterHeaterTypeHeatPump)
+      new_manager = create_new_schedule_manager(sp_type, t_set, sp_schedule_file, model, runner, Constants.WaterHeaterTypeHeatPump)
+      return false if not new_manager
+
       new_manager.addToNode(loop.supplyOutletNode)
     end
 
@@ -313,10 +333,12 @@ class Waterheater
     elsif sp_type == Constants.WaterHeaterSetpointTypeScheduled
       # To handle variable setpoints, need one schedule that gets sensed and a new schedule that gets actuated
       # Sensed schedule
-      hp_setpoint = HourlySchedule.new(model, runner, "#{obj_name_hpwh} HPSchedule", sp_schedule_file, 0, true, [])
+      hp_setpoint = HourlySchedule.new(model, runner, "#{obj_name_hpwh} HPSchedule", sp_schedule_file, 0, true, [], fill_value = 125)
       if not hp_setpoint.validated?
         return false
       end
+
+      return false if not error_check_hourly_setpoint_schedule(hp_setpoint, model, runner)
 
       hp_setpoint = hp_setpoint.schedule
       # Actuated schedule
@@ -333,10 +355,12 @@ class Waterheater
         hpwh_top_element_sp = OpenStudio::Model::ScheduleConstant.new(model)
         hpwh_top_element_sp.setName("#{obj_name_hpwh} TopElementSetpoint")
       elsif sp_type == Constants.WaterHeaterSetpointTypeScheduled
-        hpwh_top_element = HourlySchedule.new(model, runner, "#{obj_name_hpwh} TopElementSetpoint", sp_schedule_file, -5.2, true, [])
+        hpwh_top_element = HourlySchedule.new(model, runner, "#{obj_name_hpwh} TopElementSetpoint", sp_schedule_file, -5.2, true, [], fill_value = 125)
         if not hpwh_top_element.validated?
           return false
         end
+
+        return false if not error_check_hourly_setpoint_schedule(hpwh_top_element, model, runner)
 
         hpwh_top_element_sp = hpwh_top_element.schedule
       end
@@ -348,10 +372,12 @@ class Waterheater
         hpwh_top_element_sp = OpenStudio::Model::ScheduleConstant.new(model)
         hpwh_top_element_sp.setName("#{obj_name_hpwh} TopElementSetpoint")
       elsif sp_type == Constants.WaterHeaterSetpointTypeScheduled
-        hpwh_top_element = HourlySchedule.new(model, runner, "#{obj_name_hpwh} TopElementSetpoint", sp_schedule_file, -16.2, true, [])
+        hpwh_top_element = HourlySchedule.new(model, runner, "#{obj_name_hpwh} TopElementSetpoint", sp_schedule_file, -16.2, true, [], fill_value = 125)
         if not hpwh_top_element.validated?
           return false
         end
+
+        return false if not error_check_hourly_setpoint_schedule(hpwh_top_element, model, runner)
 
         hpwh_top_element_sp = hpwh_top_element.schedule
       end
@@ -730,16 +756,24 @@ class Waterheater
       t_set_sensor = OpenStudio::Model::EnergyManagementSystemSensor.new(model, "Schedule Value")
       t_set_sensor.setName("#{obj_name_hpwh} T_set")
       t_set_sensor.setKeyName("#{obj_name_hpwh} HPSchedule")
+    else
+      t_set_sensor = OpenStudio::Model::EnergyManagementSystemSensor.new(model, "Schedule Value")
+      t_set_sensor.setName("#{obj_name_hpwh} T_set")
+      t_set_sensor.setKeyName("#{obj_name_hpwh} WaterHeaterHPSchedule")
     end
 
     # Check if operating mode is constant or scheduled
     if op_mode_type == Constants.WaterHeaterOperatingModeTypeScheduled
       # This schedule will actually return numbers instead of strings since E+ can't have a schedule where all the values are strings (as far as I know). 0 will correspond to standard and 1 is heat pump only
-      op_mode_schedule = HourlySchedule.new(model, runner, "#{obj_name_hpwh} OpModeSchedule", op_mode_schedule_file, 0.0, false, [Constants.WaterHeaterOperatingModeStandard, Constants.WaterHeaterOperatingModeHeatPumpOnly])
+      op_mode_schedule = HourlySchedule.new(model, runner, "#{obj_name_hpwh} OpModeSchedule", op_mode_schedule_file, 0.0, false, [Constants.WaterHeaterOperatingModeStandard, Constants.WaterHeaterOperatingModeHeatPumpOnly], fill_value = 0)
       if not op_mode_schedule.validated?
         return false
       end
 
+      if not error_check_hourly_schedule_length(op_mode_schedule, model, runner)
+        runner.registerError("Hourly water heater schedule must be the length of the simulation period or a full year")
+        return false
+      end
       op_mode_schedule = op_mode_schedule.schedule
       op_mode_schedule_sensor = OpenStudio::Model::EnergyManagementSystemSensor.new(model, "Schedule Value")
       op_mode_schedule_sensor.setName("#{obj_name_hpwh} Op_mode")
@@ -754,7 +788,7 @@ class Waterheater
       else
         hpwh_ctrl_program.addLine("If (#{amb_temp_sensor.name}<#{UnitConversions.convert(min_temp, "F", "C").round(2)}) || (#{amb_temp_sensor.name}>#{UnitConversions.convert(max_temp, "F", "C").round(2)})")
       end
-      hpwh_ctrl_program.addLine("Set #{leschedoverride_actuator.name} = #{obj_name_hpwh} T_set")
+      hpwh_ctrl_program.addLine("Set #{leschedoverride_actuator.name} = #{t_set_sensor.name}")
       hpwh_ctrl_program.addLine("Else")
       hpwh_ctrl_program.addLine("Set #{leschedoverride_actuator.name} = 0")
       hpwh_ctrl_program.addLine("EndIf")
@@ -909,7 +943,7 @@ class Waterheater
     model.getPlantLoops.each do |pl|
       next if not pl.name.to_s.start_with? Constants.PlantLoopDomesticWater
 
-      # Remove existing water heater
+      # Remove existing hot water objects
       objects_to_remove = []
       pl.supplyComponents.each do |wh|
         next if !wh.to_WaterHeaterMixed.is_initialized and !wh.to_WaterHeaterStratified.is_initialized
@@ -919,65 +953,79 @@ class Waterheater
           if wh.to_WaterHeaterMixed.get.setpointTemperatureSchedule.is_initialized
             objects_to_remove << wh.to_WaterHeaterMixed.get.setpointTemperatureSchedule.get
           end
-        elsif wh.to_WaterHeaterStratified.is_initialized #Need to remove both HPWH and stratified electric/gas tanks
-          if not wh.to_WaterHeaterStratified.get.secondaryPlantLoop.is_initialized #don't remove SWH
+        elsif wh.to_WaterHeaterStratified.is_initialized # Need to remove both HPWH and stratified electric/gas tanks
+          if not wh.to_WaterHeaterStratified.get.secondaryPlantLoop.is_initialized # don't remove SWH
             model.getWaterHeaterHeatPumpWrappedCondensers.each do |hpwh|
               objects_to_remove << hpwh.tank
               objects_to_remove << hpwh
             end
-            
+
             objects_to_remove << wh
             objects_to_remove << wh.to_WaterHeaterStratified.get.heater1SetpointTemperatureSchedule
             objects_to_remove << wh.to_WaterHeaterStratified.get.heater2SetpointTemperatureSchedule
 
-            # Remove existing HPWH objects
-            obj_name_underscore = obj_name.gsub(" ", "_")
-
-            model.getEnergyManagementSystemProgramCallingManagers.each do |program_calling_manager|
-              next unless program_calling_manager.name.to_s.include? obj_name
-
-              program_calling_manager.remove
-            end
-
-            model.getEnergyManagementSystemSensors.each do |sensor|
-              next unless sensor.name.to_s.include? obj_name_underscore
-
-              sensor.remove
-            end
-
-            model.getEnergyManagementSystemActuators.each do |actuator|
-              next unless actuator.name.to_s.include? obj_name_underscore
-
-              actuatedComponent = actuator.actuatedComponent
-              if actuatedComponent.is_a? OpenStudio::Model::OptionalModelObject # 2.4.0 or higher
-                actuatedComponent = actuatedComponent.get
-              end
-              if actuatedComponent.to_OtherEquipment.is_initialized
-                actuatedComponent.to_OtherEquipment.get.otherEquipmentDefinition.remove
-              end
-              actuator.remove
-            end
-
-            model.getScheduleConstants.each do |schedule|
-              next unless schedule.name.to_s.include? obj_name
-
-              schedule.remove
-            end
-
-            #model.getScheduleFixedInterval.each do |schedule|
-
-            model.getEnergyManagementSystemPrograms.each do |program|
-              next unless program.name.to_s.include? obj_name_underscore
-
-              program.remove
-            end
-
-            model.getEnergyManagementSystemTrendVariables.each do |trend_var|
-              next unless trend_var.name.to_s.include? obj_name_underscore
-
-              trend_var.remove
-            end
           end
+        end
+      end
+
+      pl.supplyComponents.each do |wh|
+        next if !wh.to_WaterHeaterMixed.is_initialized and !wh.to_WaterHeaterStratified.is_initialized
+
+        obj_name_underscore = obj_name.gsub(" ", "_")
+        model.getEnergyManagementSystemProgramCallingManagers.each do |program_calling_manager|
+          next unless program_calling_manager.name.to_s.include? obj_name
+
+          program_calling_manager.remove
+        end
+
+        model.getEnergyManagementSystemSensors.each do |sensor|
+          next unless sensor.name.to_s.include? obj_name_underscore
+
+          sensor.remove
+        end
+
+        model.getEnergyManagementSystemActuators.each do |actuator|
+          next unless actuator.name.to_s.include? obj_name_underscore
+
+          actuatedComponent = actuator.actuatedComponent
+          if actuatedComponent.is_a? OpenStudio::Model::OptionalModelObject # 2.4.0 or higher
+            actuatedComponent = actuatedComponent.get
+          end
+          if actuatedComponent.to_OtherEquipment.is_initialized
+            actuatedComponent.to_OtherEquipment.get.otherEquipmentDefinition.remove
+          end
+          actuator.remove
+        end
+
+        # Remove constant schedules
+        model.getScheduleConstants.each do |schedule|
+          next unless schedule.name.to_s.include? obj_name or schedule.name.to_s.include? "dhw temp"
+
+          schedule.remove
+        end
+
+        # Remove fixed interval schedules
+        model.getScheduleFixedIntervals.each do |schedule|
+          next unless schedule.name.to_s.include? obj_name or schedule.name.to_s.include? "dhw temp"
+
+          schedule.remove
+        end
+
+        # Remove setpoint managers
+        pl.supplyOutletNode.setpointManagers.each do |sp_mgr|
+          sp_mgr.remove
+        end
+
+        model.getEnergyManagementSystemPrograms.each do |program|
+          next unless program.name.to_s.include? obj_name_underscore
+
+          program.remove
+        end
+
+        model.getEnergyManagementSystemTrendVariables.each do |trend_var|
+          next unless trend_var.name.to_s.include? obj_name_underscore
+
+          trend_var.remove
         end
       end
       if objects_to_remove.size > 0
@@ -1174,7 +1222,7 @@ class Waterheater
       return plant_loop
     end
 
-    runner.registerError("Could not find plant loop.")
+    runner.registerWarning("Could not find plant loop.")
     return nil
   end
 
@@ -1255,16 +1303,20 @@ class Waterheater
       new_schedule = OpenStudio::Model::ScheduleConstant.new(model)
       new_schedule.setName("dhw temp")
       new_schedule.setValue(UnitConversions.convert(t_set, "F", "C"))
-      OpenStudio::Model::SetpointManagerScheduled.new(model, new_schedule)
+      sp_mgr = OpenStudio::Model::SetpointManagerScheduled.new(model, new_schedule)
     elsif set_type == Constants.WaterHeaterSetpointTypeScheduled
-      new_schedule = HourlySchedule.new(model, runner, "dhw temp", sch_file, 0, true, [])
+      new_schedule = HourlySchedule.new(model, runner, "dhw temp", sch_file, 0, true, [], fill_value = 125)
       if not new_schedule.validated?
         return false
       end
 
+      return false if not error_check_hourly_setpoint_schedule(new_schedule, model, runner)
+
       wh_setpoint = new_schedule.schedule
-      OpenStudio::Model::SetpointManagerScheduled.new(model, wh_setpoint)
+      sp_mgr = OpenStudio::Model::SetpointManagerScheduled.new(model, wh_setpoint)
     end
+
+    return sp_mgr
   end
 
   def self.create_new_heater(name, cap, fuel, vol, ef, re, set_type, t_set, sch_file, thermal_zone, oncycle_p, offcycle_p, ec_adj, wh_type, cyc_derate, nbeds, tank_model_type, model, runner)
@@ -1392,6 +1444,46 @@ class Waterheater
     return new_heater
   end
 
+  def self.error_check_hourly_schedule_length(schedule, model, runner)
+    schedule_array = schedule.schedule_array
+    year_description = model.getYearDescription
+    assumed_year = year_description.assumedYear
+    run_period = model.getRunPeriod
+    run_period_start = Time.new(assumed_year, run_period.getBeginMonth, run_period.getBeginDayOfMonth)
+    run_period_end = Time.new(assumed_year, run_period.getEndMonth, run_period.getEndDayOfMonth, 24)
+    sim_hours = (run_period_end - run_period_start) / 3600
+    n_days = Constants.NumDaysInYear(year_description.isLeapYear)
+
+    # Check length of schedule
+    if (schedule_array.length.to_f != sim_hours) and (schedule_array.length.to_f != n_days * 24)
+      return false
+    end
+
+    return true
+  end
+
+  def self.error_check_hourly_setpoint_schedule(schedule, model, runner)
+    schedule_array = schedule.schedule_array
+    offset = schedule.offset
+
+    if not error_check_hourly_schedule_length(schedule, model, runner)
+      runner.registerError("Hourly water heater schedule must be the length of the simulation period or a full year")
+      return false
+    end
+
+    # Check min/max values
+    if (schedule_array.max - offset > UnitConversions.convert(212, "F", "C")) or (schedule_array.min - offset < UnitConversions.convert(0, "F", "C"))
+      runner.registerError("Water heater temperature setpoint must not be less than 0F or greater than 212F.")
+      return false
+    end
+
+    if UnitConversions.convert(schedule_array.max, "C", "F") - offset > 140 or UnitConversions.convert(schedule_array.min, "C", "F") - offset < 110
+      runner.registerWarning("Water heater temperature setpoint is outside of recommended range (110F - 140F).")
+    end
+
+    return true
+  end
+
   def self.configure_setpoint_schedule(new_heater, set_type, t_set, sch_file, wh_type, model, runner)
     if set_type == Constants.WaterHeaterSetpointTypeConstant
       set_temp_c = UnitConversions.convert(t_set, "F", "C")
@@ -1399,16 +1491,20 @@ class Waterheater
       new_schedule.setName("WH Setpoint Temp")
       new_schedule.setValue(set_temp_c)
     elsif set_type == Constants.WaterHeaterSetpointTypeScheduled
-      new_schedule = HourlySchedule.new(model, runner, "WH Setpoint Temp", sch_file, 0, true, [])
+      new_schedule = HourlySchedule.new(model, runner, "WH Setpoint Temp", sch_file, 0, true, [], fill_value = 125)
       if not new_schedule.validated?
         return false
       end
 
+      return false if not error_check_hourly_setpoint_schedule(new_schedule, model, runner)
+
+      sch_array = new_schedule.schedule_array
       new_schedule = new_schedule.schedule
     end
     if new_heater.setpointTemperatureSchedule.is_initialized
       new_heater.setpointTemperatureSchedule.get.remove
     end
+
     new_heater.setSetpointTemperatureSchedule(new_schedule)
   end
 
@@ -1423,10 +1519,12 @@ class Waterheater
       new_heater.setHeater1SetpointTemperatureSchedule(new_schedule)
       new_heater.setHeater2SetpointTemperatureSchedule(new_schedule)
     elsif set_type == Constants.WaterHeaterSetpointTypeScheduled
-      new_schedule = HourlySchedule.new(model, runner, "WH Setpoint Temp", sch_file, 0, true, [])
+      new_schedule = HourlySchedule.new(model, runner, "WH Setpoint Temp", sch_file, 0, true, [], fill_value = 125)
       unless new_schedule.validated?
         return false
       end
+
+      return false if not error_check_hourly_setpoint_schedule(new_schedule, model, runner)
 
       wh_setpoint = new_schedule.schedule
       new_heater.heater1SetpointTemperatureSchedule.remove

@@ -442,7 +442,7 @@ end
 
 # Generic class for handling an hourly schedule (saved as a csv) with 8760 values. Currently used by water heater models.
 class HourlySchedule
-  def initialize(model, runner, sch_name, file, offset, convert_temp, validation_values)
+  def initialize(model, runner, sch_name, file, offset, convert_temp, validation_values, fill_value = nil)
     @validated = true
     @model = model
     @runner = runner
@@ -451,7 +451,7 @@ class HourlySchedule
     @offset = offset
     @convert_temp = convert_temp
     @validation_values = validation_values
-    @schedule, @schedule_array = createHourlyScheduleFromFile(runner, file, offset, convert_temp, validation_values)
+    @schedule, @schedule_array = createHourlyScheduleFromFile(runner, file, offset, convert_temp, validation_values, fill_value)
 
     if @schedule.nil?
       @validated = false
@@ -464,6 +464,10 @@ class HourlySchedule
     return @validated
   end
 
+  def name
+    return @sch_name
+  end
+
   def schedule
     return @schedule
   end
@@ -472,9 +476,17 @@ class HourlySchedule
     return @schedule_array
   end
 
+  def offset
+    return @offset
+  end
+
+  def validation_values
+    return @validation_values
+  end
+
   private
 
-  def createHourlyScheduleFromFile(runner, file, offset, convert_temp, validation_values)
+  def createHourlyScheduleFromFile(runner, file, offset, convert_temp, validation_values, fill_value = nil)
     data = []
 
     # Get appropriate file
@@ -501,17 +513,30 @@ class HourlySchedule
           value = validation_values.find_index(linedata[0]).to_f / (validation_values.length.to_f - 1.0)
           data[hour] = value
         else
-          runner.registerError("Invalid value included in the hourly water heater setpoint schedule file. The invalid data occurs at hour #{hour}")
+          runner.registerError("Invalid value included in the hourly schedule file #{file}. The invalid data occurs at hour #{hour}")
         end
       end
       hour += 1
     end
 
     year_description = @model.getYearDescription
-    start_date = year_description.makeDate(1, 1)
     interval = OpenStudio::Time.new(0, 1, 0, 0)
+    start_date = year_description.makeDate(1, 1)
 
-    time_series = OpenStudio::TimeSeries.new(start_date, interval, OpenStudio::createVector(data), "")
+    if (data.length != 24 * Constants.NumDaysInYear(year_description.isLeapYear)) and not fill_value.nil?
+      # Fill hourly values for full year - allows for schedules shorter than a full year that are the same length as the simulation period
+      assumed_year = year_description.assumedYear
+      run_period = @model.getRunPeriod
+      run_period_start = Time.new(assumed_year, run_period.getBeginMonth, run_period.getBeginDayOfMonth)
+      start_hr = (run_period_start.yday - 1) * 24
+      end_hr = start_hr + data.length
+
+      data_yr = [UnitConversions.convert(fill_value, "F", "C")] * Constants.NumDaysInYear(year_description.isLeapYear) * 24
+      data_yr[start_hr...end_hr] = data
+      time_series = OpenStudio::TimeSeries.new(start_date, interval, OpenStudio::createVector(data_yr), "")
+    else
+      time_series = OpenStudio::TimeSeries.new(start_date, interval, OpenStudio::createVector(data), "")
+    end
 
     schedule = OpenStudio::Model::ScheduleFixedInterval.fromTimeSeries(time_series, @model).get
     schedule.setName(@sch_name)
@@ -1245,12 +1270,17 @@ class ScheduleGenerator
     dw_power_sch = [0] * mins_in_year
     step = 0
     last_state = 0
+    start_time = Time.new(sim_year, 1, 1)
     while step < mkc_steps_in_a_year
       dish_state = sum_across_occupants(all_simulated_values, 4, step, max_clip = 1)
       step_jump = 1
       if dish_state > 0 and last_state == 0 # last_state == 0 prevents consecutive dishwasher power without gap
         duration_15min, avg_power = sample_appliance_duration_power(prng, appliance_power_dist_map, "dishwasher")
-        duration = [duration_15min * 15, mins_in_year - step * 15].min
+
+        month = (start_time + step * 15 * 60).month
+        duration_min = (duration_15min * 15 * schedule_config["dishwasher"]["monthly_multiplier"][month - 1]).to_i
+
+        duration = [duration_min, mins_in_year - step * 15].min
         dw_power_sch.fill(avg_power, step * 15, duration)
         step_jump = duration_15min
       end
@@ -1264,16 +1294,22 @@ class ScheduleGenerator
     cd_power_sch = [0] * mins_in_year
     step = 0
     last_state = 0
+    start_time = Time.new(sim_year, 1, 1)
     while step < mkc_steps_in_a_year
       clothes_state = sum_across_occupants(all_simulated_values, 2, step, max_clip = 1)
       step_jump = 1
       if clothes_state > 0 and last_state == 0 # last_state == 0 prevents consecutive washer power without gap
         cw_duration_15min, cw_avg_power = sample_appliance_duration_power(prng, appliance_power_dist_map, "clothes_washer")
         cd_duration_15min, cd_avg_power = sample_appliance_duration_power(prng, appliance_power_dist_map, "clothes_dryer")
-        cw_duration = [cw_duration_15min * 15, mins_in_year - step * 15].min
+
+        month = (start_time + step * 15 * 60).month
+        cd_duration_min = (cd_duration_15min * 15 * schedule_config["clothes_dryer"]["monthly_multiplier"][month - 1]).to_i
+        cw_duration_min = (cw_duration_15min * 15 * schedule_config["clothes_washer"]["monthly_multiplier"][month - 1]).to_i
+
+        cw_duration = [cw_duration_min, mins_in_year - step * 15].min
         cw_power_sch.fill(cw_avg_power, step * 15, cw_duration)
         cd_start_time = (step * 15 + cw_duration).to_i # clothes dryer starts immediately after washer ends\
-        cd_duration = [cd_duration_15min * 15, mins_in_year - cd_start_time].min # cd_duration would be negative if cd_start_time > mins_in_year, and no filling would occur
+        cd_duration = [cd_duration_min, mins_in_year - cd_start_time].min # cd_duration would be negative if cd_start_time > mins_in_year, and no filling would occur
         cd_power_sch = cd_power_sch.fill(cd_avg_power, cd_start_time, cd_duration)
         step_jump = cw_duration_15min + cd_duration_15min
       end
@@ -1286,18 +1322,22 @@ class ScheduleGenerator
     cooking_power_sch = [0] * mins_in_year
     step = 0
     last_state = 0
+    start_time = Time.new(sim_year, 1, 1)
     while step < mkc_steps_in_a_year
       cooking_state = sum_across_occupants(all_simulated_values, 3, step, max_clip = 1)
       step_jump = 1
       if cooking_state > 0 and last_state == 0 # last_state == 0 prevents consecutive cooking power without gap
         duration_15min, avg_power = sample_appliance_duration_power(prng, appliance_power_dist_map, "cooking")
-        duration = [duration_15min * 15, mins_in_year - step * 15].min
+        month = (start_time + step * 15 * 60).month
+        duration_min = (duration_15min * 15 * schedule_config["cooking"]["monthly_multiplier"][month - 1]).to_i
+        duration = [duration_min, mins_in_year - step * 15].min
         cooking_power_sch.fill(avg_power, step * 15, duration)
         step_jump = duration_15min
       end
       last_state = cooking_state
       step += step_jump
     end
+
     offset_range = 30
     random_offset = (prng.rand * 2 * offset_range).to_i - offset_range
     sink_activity_sch = sink_activity_sch.rotate(-4 * 60 + random_offset) # 4 am shifting
