@@ -41,7 +41,9 @@ class ReportElectricWaterHeaterInformation < OpenStudio::Measure::ReportingMeasu
       "off_cycle_loss_coefficient_W_per_K",
       "on_cycle_loss_coefficient_W_per_K",
       "heater_thermal_efficiency_fraction",
-      "heater_maximum_capacity_W"
+			"heat_pump_rated_cop",
+      "heater_maximum_capacity_W",
+			"heat_pump_heating_capacity_W"
     ]
     string_properties = [
       "setpoint_temperature_schedule",
@@ -100,6 +102,10 @@ class ReportElectricWaterHeaterInformation < OpenStudio::Measure::ReportingMeasu
 		water_heaters += model.getWaterHeaterStratifieds
 		num_water_heater_stratifieds = water_heaters.length - num_water_heater_mixeds
 		
+		heat_pumps = []
+		heat_pumps += model.getWaterHeaterHeatPumpWrappedCondensers
+		num_heat_pumps = heat_pumps.length
+				
 		# puts "The model has #{num_water_heater_mixeds} WaterHeater:Mixed objects"
 		# puts "The model has #{num_water_heater_stratifieds} WaterHeater:Stratified objects"
 		# puts "The water heater array has a length of #{water_heaters.length}"
@@ -112,6 +118,18 @@ class ReportElectricWaterHeaterInformation < OpenStudio::Measure::ReportingMeasu
       return true
     end
     water_heater = water_heaters[0]
+		
+		if num_heat_pumps > 1
+      runner.registerAsNotApplicable("Measure is not applicable because the number of WaterHeater:HeatPump:WrappedCondenser objects #{num_heat_pumps} is greater than 1.")
+      return true
+		end
+		
+		if num_heat_pumps == 1
+			heat_pump = heat_pumps[0]
+		else
+			heat_pump = []
+		end
+		
 		# get water heater type
 		if num_water_heater_mixeds == 1
 			water_heater_type = "WaterHeater:Mixed"
@@ -196,7 +214,28 @@ class ReportElectricWaterHeaterInformation < OpenStudio::Measure::ReportingMeasu
 		elsif water_heater_type == "WaterHeater:Stratified"
 			runner.registerValue("heater_thermal_efficiency_fraction", water_heater.heaterThermalEfficiency)
 			runner.registerInfo("Registering #{water_heater.heaterThermalEfficiency} for heater_thermal_efficiency_fraction")
-		end	
+		end
+		
+		# register heat pump efficiency and heating capacity
+		if heat_pump.nil?
+			runner.registerValue("heat_pump_rated_cop", "NA")
+			runner.registerInfo("Registering NA for heat_pump_rated_cop")
+			runner.registerValue("heat_pump_heating_capacity_W", "NA")
+			runner.registerInfo("Registering NA for heat_pump_heating_capacity_W")
+		else
+			# get heating coil
+			dx_coil = heat_pump.dXCoil.to_CoilWaterHeatingAirToWaterHeatPumpWrapped
+			if dx_coil.is_initialized
+				dx_coil = dx_coil.get
+				runner.registerValue("heat_pump_rated_cop", dx_coil.ratedCOP)
+				runner.registerInfo("Registering #{dx_coil.ratedCOP} for heat_pump_rated_cop")
+				runner.registerValue("heat_pump_heating_capacity_W", dx_coil.ratedHeatingCapacity)
+				runner.registerInfo("Registering #{dx_coil.ratedHeatingCapacity} for heat_pump_heating_capacity_W")
+			else
+				runner.registerError("Unexpected DX coil object for heat pump; expecting CoilWaterHeatingAirToWaterHeatPumpWrapped")
+				return false
+			end
+		end
 		
 		# register maximum capacity
 		if water_heater_type == "WaterHeater:Mixed"
@@ -222,8 +261,12 @@ class ReportElectricWaterHeaterInformation < OpenStudio::Measure::ReportingMeasu
 			heater_priority_control = water_heater.heaterPriorityControl
 			# register maximum heater capacity
 			if heater_priority_control == "MasterSlave"
-				runner.registerValue("heater_maximum_capacity_W", [heater_1_capacity,heater_2_capacity].max)
-				runner.registerInfo("Registering #{[heater_1_capacity,heater_2_capacity].max} for heater_maximum_capacity_W")
+				# modified to report heater_1 capacity since it will always have priority
+				# and currently the measure crashes if heater_1 and heater_2 have different setpoints
+				runner.registerValue("heater_maximum_capacity_W", heater_1_capacity)
+				runner.registerInfo("Registering #{heater_1_capacity} for heater_maximum_capacity_W")
+				# runner.registerValue("heater_maximum_capacity_W", [heater_1_capacity,heater_2_capacity].max)
+				# runner.registerInfo("Registering #{[heater_1_capacity,heater_2_capacity].max} for heater_maximum_capacity_W")
 			elsif heater_priority_control == "Simultaneous"
 				runner.registerValue("heater_maximum_capacity_W", heater_1_capacity + heater_2_capacity)
 				runner.registerInfo("Registering #{heater_1_capacity + heater_2_capacity} for heater_maximum_capacity_W")
@@ -234,23 +277,30 @@ class ReportElectricWaterHeaterInformation < OpenStudio::Measure::ReportingMeasu
 		end
 		
 		# register setpoint temperature schedule name
-		if water_heater_type == "WaterHeater:Mixed"
-			if water_heater.setpointTemperatureSchedule.is_initialized
-				runner.registerValue("setpoint_temperature_schedule", water_heater.setpointTemperatureSchedule.get.name.get.to_s)
-				runner.registerInfo("Registering #{water_heater.setpointTemperatureSchedule.get.name.get.to_s} for setpoint_temperature_schedule")
-			else
-				runner.registerError("Setpoint temperature schedule not specified for #{water_heater_type}: #{water_heater.name.get.to_s}")
-				return false
+		
+		if heat_pump.nil?
+			if water_heater_type == "WaterHeater:Mixed"
+				if water_heater.setpointTemperatureSchedule.is_initialized
+					runner.registerValue("setpoint_temperature_schedule", water_heater.setpointTemperatureSchedule.get.name.get.to_s)
+					runner.registerInfo("Registering #{water_heater.setpointTemperatureSchedule.get.name.get.to_s} for setpoint_temperature_schedule")
+				else
+					runner.registerError("Setpoint temperature schedule not specified for #{water_heater_type}: #{water_heater.name.get.to_s}")
+					return false
+				end
+			elsif water_heater_type == "WaterHeater:Stratified"
+				heater_1_setpoint_sch_name = water_heater.heater1SetpointTemperatureSchedule.name.get.to_s
+				heater_2_setpoint_sch_name = water_heater.heater2SetpointTemperatureSchedule.name.get.to_s
+				unless heater_1_setpoint_sch_name == heater_2_setpoint_sch_name
+					runner.registerError("Heater setpoint schedules do not match for #{water_heater_type}: #{water_heater.name.get.to_s}")
+					return false
+				end
+				runner.registerValue("setpoint_temperature_schedule", heater_1_setpoint_sch_name)
+				runner.registerInfo("Registering #{heater_1_setpoint_sch_name} for setpoint_temperature_schedule")
 			end
-		elsif water_heater_type == "WaterHeater:Stratified"
-			heater_1_setpoint_sch_name = water_heater.heater1SetpointTemperatureSchedule.name.get.to_s
-			heater_2_setpoint_sch_name = water_heater.heater2SetpointTemperatureSchedule.name.get.to_s
-			unless heater_1_setpoint_sch_name == heater_2_setpoint_sch_name
-				runner.registerError("Heater setpoint schedules do not match for #{water_heater_type}: #{water_heater.name.get.to_s}")
-				return false
-			end
-			runner.registerValue("setpoint_temperature_schedule", heater_1_setpoint_sch_name)
-			runner.registerInfo("Registering #{heater_1_setpoint_sch_name} for setpoint_temperature_schedule")
+		else
+			heat_pump_setpoint_sch_name = heat_pump.compressorSetpointTemperatureSchedule.name.get.to_s
+			runner.registerValue("setpoint_temperature_schedule", heat_pump_setpoint_sch_name)
+			runner.registerInfo("Registering #{heat_pump_setpoint_sch_name} for setpoint_temperature_schedule")
 		end		
 		
 		# register use flow rate schedule name
