@@ -217,7 +217,7 @@ class ReportElectricWaterHeaterInformation < OpenStudio::Measure::ReportingMeasu
 		end
 		
 		# register heat pump efficiency and heating capacity
-		if heat_pump.nil?
+		if heat_pump.empty?
 			runner.registerValue("heat_pump_rated_cop", "NA")
 			runner.registerInfo("Registering NA for heat_pump_rated_cop")
 			runner.registerValue("heat_pump_heating_capacity_W", "NA")
@@ -277,8 +277,7 @@ class ReportElectricWaterHeaterInformation < OpenStudio::Measure::ReportingMeasu
 		end
 		
 		# register setpoint temperature schedule name
-		
-		if heat_pump.nil?
+		if heat_pump.empty?
 			if water_heater_type == "WaterHeater:Mixed"
 				if water_heater.setpointTemperatureSchedule.is_initialized
 					runner.registerValue("setpoint_temperature_schedule", water_heater.setpointTemperatureSchedule.get.name.get.to_s)
