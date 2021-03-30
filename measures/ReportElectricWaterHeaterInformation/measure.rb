@@ -216,9 +216,9 @@ class ReportElectricWaterHeaterInformation < OpenStudio::Measure::ReportingMeasu
 		
 		# register heat pump efficiency and heating capacity
 		unless num_heat_pumps == 1
-			runner.registerValue("heat_pump_rated_cop", "NA")
+			runner.registerValue("heat_pump_rated_cop", 0)
 			runner.registerInfo("Registering NA for heat_pump_rated_cop")
-			runner.registerValue("heat_pump_heating_capacity_W", "NA")
+			runner.registerValue("heat_pump_heating_capacity_W", 0)
 			runner.registerInfo("Registering NA for heat_pump_heating_capacity_W")
 		else
 			# get heating coil
