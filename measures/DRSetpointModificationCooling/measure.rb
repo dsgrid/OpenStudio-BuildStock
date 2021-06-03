@@ -69,9 +69,10 @@ class DRSetpointModificationCooling < OpenStudio::Measure::ModelMeasure
 
 		# get cooling coil(s)
 		cooling_coils = model.getCoilCoolingDXSingleSpeeds
+		cooling_coils += model.getCoilCoolingDXMultiSpeeds
 		
 		if cooling_coils.length == 0
-      runner.registerAsNotApplicable("Number of CoilCoolingDXSingleSpeed objects is #{cooling_coils.length}; measure is not applicable")
+      runner.registerAsNotApplicable("Number of CoilCoolingDXSingleSpeed or CoilCoolingDXMultiSpeed objects is #{cooling_coils.length}; measure is not applicable")
       return true
 		end	
 
